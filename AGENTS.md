@@ -45,6 +45,69 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Tools\build-and-verify.ps1
 Gradle 9.4.0（走腾讯镜像，因为 `services.gradle.org` 在本机证书链校验失败）/
 GeckoLib 4.9.3 / JEI 19.57.0.449 / Jade 15.10.6+neoforge（后两个仅开发期，见下）。
 
+## 在 IDEA 里运行（踩过的坑）
+`.idea/workspace.xml` 里有三个 **Application** 类型的运行配置
+`Client` / `Server` / `Data`，主类都是 `net.neoforged.devlaunch.Main`，
+靠 `@build\moddev\clientRunProgramArgs.txt` 这类**参数文件**传参。
+
+**症状**：点运行立刻失败，报
+`Process 'command 'D:\Java\Java21\bin\java.exe'' finished with non-zero exit value 1`。
+IDEA 日志里**只有退出码，没有 java 的 stderr**，所以从 IDEA 那边看不出原因。
+
+**真正原因**：那些 `@xxxRunArgs.txt` 文件**不存在**。
+java 对 `@不存在的文件` 的行为是——打印 `Error: could not open '<路径>'`、
+**退出码 1**，与上面的症状完全一致（已实测对照过）。
+
+**为什么文件会缺**：这些文件由 **`prepareClientRun` / `prepareServerRun` /
+`prepareDataRun`** 生成，**`gradlew build` 不会生成它们**（实测：
+删掉后跑 `build`，文件依旧不存在）。所以只跑 `build` 或 `clean` 之后
+直接点 IDEA 运行，就会踩到。
+
+**修法**（任选其一，都会补齐）：
+
+```
+.\gradlew.bat build                # 已把 prepare*Run 挂进 build，现在这条就够
+.\gradlew.bat prepareClientRun     # 只补 client
+.\gradlew.bat neoForgeIdeSync      # 补全部三个（IDEA 同步时跑的就是它）
+.\gradlew.bat runClient            # 跑一次也会顺带生成
+```
+
+**已修**：`build.gradle` 里把 `build` 挂上了
+`dependsOn 'prepareClientRun', 'prepareServerRun', 'prepareDataRun'`，
+所以现在 `clean` 之后跑一次 `build` 就能在 IDEA 里运行。
+（实测：clean → build 后六个 args 文件全部生成。）
+
+⚠️ **另有一个独立坑：`clean` 自己会失败**，报
+`Unable to delete directory ... build\moddev\artifacts\neoforge-*.jar`，
+原因是**有 java 进程还占着那些 jar**。最常见的就是上次跑完没退干净的
+游戏进程 / devlaunch 进程。处理办法：先关掉游戏，确认真没有
+`java` 进程带着 `devlaunch` 再 clean：
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='java.exe'" |
+  Where-Object { $_.CommandLine -match 'devlaunch' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+```
+
+**注意 `clean` 会删掉 `build/`，也就删掉了这些文件** ——
+不过因为 build 现在会重新生成它们，clean 之后跑 `build` 即可。
+
+**怎么确认不是别的问题**：忠实复刻 IDEA 的命令行真的启动一次。
+IDEA 用的是 `sourceSets.main.runtimeClasspath` 当 `-cp`
+（**不是**只给 DevLaunch.jar），完整命令形态：
+
+```
+java @build\moddev\clientRunVmArgs.txt ^
+     "-Dfml.modFolders=pantheon_champions%%<项目>\build\classes\java\main;pantheon_champions%%<项目>\build\resources\main" ^
+     -cp <完整 runtimeClasspath> net.neoforged.devlaunch.Main ^
+     @build\moddev\clientRunProgramArgs.txt
+```
+
+> ⚠️ 我一开始自己拼了个 `-cp DevLaunch.jar` 去试，报
+> `Failed to find net/minecraft/server/MinecraftServer.class on the classpath`。
+> **那是我复刻错了，不是 mod 的问题** —— 别把这个错误当成线索。
+> 复刻时 classpath 必须是完整的那一份。
+
 ## 前置依赖：GeckoLib（已实机验证）
 用来做模型和动画。**1.21.1 属于 GeckoLib 4.x 线**，坐标与当前官网文档不同，
 照官网抄会失败：

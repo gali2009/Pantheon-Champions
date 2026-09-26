@@ -115,6 +115,25 @@ neoForge {
     }
 }
 
+// Make `build` also leave the IDE run configurations usable.
+//
+// Why this is needed: the IDEA run configurations in .idea/workspace.xml launch
+// net.neoforged.devlaunch.Main with '@build/moddev/clientRunProgramArgs.txt' and
+// '@build/moddev/clientRunVmArgs.txt'. Those files are produced by the
+// prepareClientRun / prepareServerRun / prepareDataRun tasks -- NOT by `build`.
+// java exits with code 1 and "Error: could not open '<path>'" when an @argfile is
+// missing, which surfaces in IDEA only as "finished with non-zero exit value 1"
+// with no explanation.
+//
+// `clean` deletes build/, so the sequence "clean, build, press Run in IDEA" used
+// to fail every time. Wiring the three prepare tasks into `build` costs about a
+// second and makes that sequence work. It also means these files always match the
+// current dependency set instead of whatever was generated last time JEI/Jade or
+// GeckoLib changed.
+tasks.named('build') {
+    dependsOn 'prepareClientRun', 'prepareServerRun', 'prepareDataRun'
+}
+
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 dependencies {
