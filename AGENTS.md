@@ -42,7 +42,62 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Tools\build-and-verify.ps1
 > **不要再往脚本里加 jar 列表**。
 
 依赖版本（`gradle.properties`）：MC 1.21.1 / NeoForge 21.1.250 / ModDevGradle 2.0.141 /
-Gradle 9.4.0（走腾讯镜像，因为 `services.gradle.org` 在本机证书链校验失败）。
+Gradle 9.4.0（走腾讯镜像，因为 `services.gradle.org` 在本机证书链校验失败）/
+GeckoLib 4.9.3。
+
+## 前置依赖：GeckoLib（已实机验证）
+用来做模型和动画。**1.21.1 属于 GeckoLib 4.x 线**，坐标与当前官网文档不同，
+照官网抄会失败：
+
+| 项 | 值 | 说明 |
+|---|---|---|
+| group | `software.bernie.geckolib` | **不是** `com.geckolib` |
+| artifact | `geckolib-neoforge-1.21.1` | artifact 名内嵌 MC 版本 |
+| 版本 | `4.9.3` | |
+| Maven | `https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/` | |
+
+**三个已核实的坑**：
+1. **官网 wiki 的 group 是错的（对本版本而言）**。`wiki.geckolib.com` 的
+   GeckoLib5 页写 `com.geckolib`，但那对 1.21.1 **404**。1.21.1 必须用
+   `software.bernie.geckolib`（已下载 jar 对比 SHA1 确认）。
+2. **wiki 的版本支持表滞后**。表里 1.21.1 只写到 `4.8.3`，但 Maven 上
+   `geckolib-neoforge-1.21.1` 已发布到 `4.9.3`（`lastUpdated` 2026-09-16）。
+   表不是兼容性上限。本项目用 4.9.3，且**运行时实测装载成功**。
+3. **不需要 mclib，也不需要 mixin 插件**。那是 1.20.4 及以下的做法。
+   1.20.5+ 只需一行 `implementation`（官方 Installation-(Geckolib4) 文档确认，
+   且该 jar 的 Gradle module 元数据声明零传递依赖）。
+
+`GeoEntity` 是**接口**（`javap` 已确认），所以勇士实体可以
+`extends Monster implements GeoEntity` —— 这点很关键，因为勇士必须是敌对生物。
+
+验证脚本：`Tools\verify-geckolib.ps1`（启动 runClient，从日志确认 GeckoLib
+与本 mod 同时出现在 mod 列表）。**不要拿 `gradlew build` 成功冒充运行时装载成功**，
+两者失败方式完全不同。
+
+## 本地参考资料
+`docs-reference/`（已 gitignore）是上游文档的浅克隆，不用反复抓网页：
+- `geckolib-wiki/` —— 新版 wiki 源码。4.x 内容在
+  `versioned_docs/version-geckolib4/`，但**那是存根**，只有版本表。
+- `geckolib4-old-wiki/` —— **4.x 的权威文档**（官方在存根里指向这里）。
+  看 `Installation-(Geckolib4).md`、`Geckolib-Entities-(Geckolib4).md`、
+  `The-Animation-Controller-(Geckolib4).md`。
+- `neoforge-docs/versioned_docs/version-1.21.1/` —— NeoForge 官方文档
+  **1.21.1 版本**（63 篇）。注意要用带版本号的目录，**不要读 `docs/`**，
+  那是最新版（1.21.11），API 与本项目不一致。
+
+需要更新时：`git -C docs-reference/<目录> pull`。
+
+## 浏览器自动化
+`C:\Users\Admin\.dsh\tools\browser\browser.mjs`（DSH 级工具，不在项目内）。
+用 `node` 直接调用，驱动真实 Chrome 154，带界面可观察，复用已装 Chrome
+不额外下载内核。支持 goto/text/html/links/click/fill/press/wait/eval/shot/close。
+
+**为什么不用 MCP**：DSH 的 `dsh-mcp-client` 已安装，能把 chrome-devtools-mcp
+变成原生工具，但实测那会**常驻 30 个工具、每请求约 7,500 token**。
+本脚本按需启动、用完退出，静态成本为 0。
+
+**限制**：当前模型不支持读图，所以 `shot` 能生成截图但**我看不到内容**。
+看渲染结果要靠 `eval` 提取 DOM 数据，或截图后由人来看。
 
 ## 已核实的硬约束（踩过的坑，别重犯）
 1. **`MobType` 枚举在 1.21.1 已被移除**。老教程里的 `MobType.UNDEAD` 编译不过。
@@ -61,6 +116,15 @@ Gradle 9.4.0（走腾讯镜像，因为 `services.gradle.org` 在本机证书链
    全空白注释在开发环境会抛 `IllegalStateException`。
 7. `comment()` 只作用于**紧邻的下一个** `define`（每次 define 后 context 重置）。
 8. 不要用 3 参 `defineList`（已废弃），用 4 参版（含 `newElementSupplier`）。
+9. **`ProcessResources` 必须显式设 `filteringCharset = 'UTF-8'`**。
+   它默认用平台编码读模板，本机是 GBK。模板里有中文时，按 GBK 解析 UTF-8
+   字节不仅变乱码，**某些字节序列还会把紧跟的换行一起吃掉**，导致下一行被
+   并进注释里。实测中 `[[dependencies]]` 表头被吞掉过，整个依赖块静默失效
+   ——`build` 依然成功，只有打开生成的 toml 才看得出来。
+   凡是往 `src/main/templates/` 里写非 ASCII 内容，都要注意这条。
+10. **改了 `expand` / 模板后要 `clean` 再验**。`generateModMetadata` 是
+   `ProcessResources` 任务，输入没变时会 UP-TO-DATE，光看 `build` 成功会
+   读到上次的旧产物。
 
 ## 设计要点（详见 DESIGN.md）
 - MC 有 **4 套并行的分类体系**：`MobCategory`（只管生成规则）、

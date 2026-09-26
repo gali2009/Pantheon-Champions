@@ -22,3 +22,13 @@ type = "required"
 versionRange = "${minecraft_version_range}"
 ordering = "NONE"
 side = "BOTH"
+
+# GeckoLib 提供模型与动画运行时。modId 是 "geckolib"（不是 artifact 名）。
+# 这里声明的版本下界要与 gradle.properties 的 geckolib_version 保持一致，
+# 否则会出现「编译时用 4.9.3、运行时装了 4.8.3」这种只在别人机器上炸的组合。
+[[dependencies."${mod_id}"]]
+modId = "geckolib"
+type = "required"
+versionRange = "[${geckolib_version},)"
+ordering = "AFTER"
+side = "BOTH"

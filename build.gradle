@@ -18,6 +18,21 @@ java {
 repositories {
     mavenLocal()
     mavenCentral()
+
+    // GeckoLib's own maven. exclusiveContent keeps Gradle from hunting for the
+    // software.bernie.geckolib group anywhere else, which matters because the
+    // group name is not resolvable from Maven Central.
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'GeckoLib'
+                url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+            }
+        }
+        filter {
+            includeGroupAndSubgroups('software.bernie.geckolib')
+        }
+    }
 }
 
 neoForge {
@@ -73,6 +88,13 @@ neoForge {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 dependencies {
+    // GeckoLib: the model and animation runtime the champion mobs will use.
+    //
+    // The artifact name embeds the Minecraft version, so it is built from
+    // minecraft_version rather than hardcoded. GeckoLib 4.x declares no
+    // transitive dependencies, so this single line is the whole story.
+    implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+
     // TomlHarness is a plain main() harness rather than a JUnit suite: it drives the
     // real ModConfigSpec, regenerates the TOML, and re-reads it.
     testImplementation "com.electronwill.night-config:core:3.8.3"
@@ -94,6 +116,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
                              neo_version            : neo_version,
                              neo_version_range      : neo_version_range,
                              loader_version_range   : loader_version_range,
+                             geckolib_version       : geckolib_version,
                              mod_id                 : mod_id,
                              mod_name               : mod_name,
                              mod_license            : mod_license,
@@ -101,6 +124,11 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
                              mod_authors            : mod_authors,
                              mod_description        : mod_description]
     inputs.properties replaceProperties
+    // 必须显式指定 UTF-8。ProcessResources 默认用平台编码读模板，本机是 GBK，
+    // 而模板里有中文注释：按 GBK 解析 UTF-8 字节不仅变乱码，某些字节序列
+    // 还会把紧跟的换行一起吃掉，导致下一行被并进注释里——实测中出现过
+    // [[dependencies]] 表头被吞、整个依赖块失效的情况。
+    filteringCharset = 'UTF-8'
     expand replaceProperties
     from "src/main/templates"
     into "build/generated/sources/modMetadata"

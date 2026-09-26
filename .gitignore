@@ -23,3 +23,7 @@ desktop.ini
 # logs
 *.log
 logs/
+
+# 本地参考资料：上游文档仓库的浅克隆，随时可重新拉取，
+# 不属于本项目源码，不进版本库（否则一次 git add 会吞进上千个文件）。
+docs-reference/
