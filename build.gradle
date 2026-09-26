@@ -140,6 +140,23 @@ tasks.named('compileJava') {
     options.compilerArgs << '-Xmaxerrs' << '2000'
 }
 
+// 源码里有大量中文注释与中文字符串（配置项的注释会写进 TOML）。
+// 不显式指定编码时，javac 按平台默认编码读源码——本机是 GBK。
+// 那样虽然有时「看起来能用」（源码被当 GBK 读、输出又按 GBK 写回，恰好自洽），
+// 但只要文件里出现 GBK 无法映射的字符（如 emoji、某些标点），就会编译失败或
+// 产生乱码，而且报错信息通常指向别处。这里把两端都钉死为 UTF-8。
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(Test).configureEach {
+    systemProperty 'file.encoding', 'UTF-8'
+}
+
+tasks.withType(JavaExec).configureEach {
+    systemProperty 'file.encoding', 'UTF-8'
+}
+
 // The default test task is off. TomlHarness is a plain main() harness driven by
 // Tools/build-and-verify.ps1, not a JUnit suite, so there is nothing for Gradle's
 // test task to discover.

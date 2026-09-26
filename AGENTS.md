@@ -125,6 +125,35 @@ GeckoLib 4.9.3。
 10. **改了 `expand` / 模板后要 `clean` 再验**。`generateModMetadata` 是
    `ProcessResources` 任务，输入没变时会 UP-TO-DATE，光看 `build` 成功会
    读到上次的旧产物。
+11. **Java 源码编码已在 `build.gradle` 里钉死为 UTF-8**（`options.encoding`，
+    以及 Test / JavaExec 的 `file.encoding`）。**不要删掉这几行**。
+    不设时 javac 按平台默认编码读源码，本机是 GBK；而 `ChampionsConfig`
+    里的中文是**字符串字面量**，会写进出厂的 TOML 配置文件，属于用户可见文本。
+    GBK 下「恰好能用」是因为读和写两端自洽，但只要出现 GBK 映射不了的字符
+    就会坏掉，且报错通常不指向真正的原因。
+
+## Java 注释语言
+**本模组的 Java 注释一律用中文写**：类头 Javadoc、方法说明、行内注释都是。
+`ChampionsConfig` 是范例，照它的风格来。
+
+注意 `comment(...)` 的参数是**字符串**而不是注释，但它也是中文——那是给玩家
+看的配置说明，会写进 `pantheon_champions-common.toml`。改它等于改用户可见文本，
+验证时要连带检查 TOML 是否有乱码（`Tools\build-and-verify.ps1` 会重生该文件）。
+
+## 声音资源
+- 音频必须放 `assets/pantheon_champions/sounds/`。**`assets/<命名空间>/` 这层
+  不能少**——直接放 `resources/sounds/` 是死数据，游戏永远找不到。
+- **MC 只支持 `.ogg`（Vorbis）**，不认 MP3/Opus。
+- **必须是单声道**。立体声不受 OpenAL 衰减影响，会永远在玩家位置播放；
+  官方文档已明确警告这条。转码：
+  `ffmpeg -i 输入 -ac 1 -c:a libvorbis -q:a 5 输出.ogg`
+  （ffmpeg 9.0.1 已装，位于 `%LOCALAPPDATA%\Microsoft\WinGet\Packages`，
+  PATH 别名在 `%LOCALAPPDATA%\Microsoft\WinGet\Links`）。
+- 光有音频不会响，还需要两样：
+  1. `assets/pantheon_champions/sounds.json` —— 把事件名映射到文件
+  2. Java 里注册 `SoundEvent`（见 `ChampionsSounds`）
+- 验证脚本 `Tools\verify-sounds.ps1`：启动游戏后检查资源重载是否完成、
+  有无声音加载报错。**`build` 成功不代表声音能用**，只有日志能证明。
 
 ## 设计要点（详见 DESIGN.md）
 - MC 有 **4 套并行的分类体系**：`MobCategory`（只管生成规则）、

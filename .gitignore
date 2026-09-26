@@ -27,3 +27,11 @@ logs/
 # 本地参考资料：上游文档仓库的浅克隆，随时可重新拉取，
 # 不属于本项目源码，不进版本库（否则一次 git add 会吞进上千个文件）。
 docs-reference/
+
+# TomlHarness（gradle verifyConfig 任务）在项目根目录生成的中间产物。
+# 它每次构建都会被重新生成，属于可丢弃的构建输出，不该进版本库。
+# 真正要随模组发布的是下面这份副本，已显式跟踪：
+#     src/main/resources/pantheon_champions-common.toml
+# 两份内容一致，但只有 resources 里那份会被打进 jar。
+# 不忽略的话会出现「改了 A 忘了 B」的漂移。
+/pantheon_champions-common.toml

@@ -1,0 +1,22 @@
+{
+  "stun1": {
+    "subtitle": "subtitles.pantheon_champions.stun1",
+    "sounds": [
+      {
+        "name": "pantheon_champions:stun1",
+        "stream": false,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "stun2": {
+    "subtitle": "subtitles.pantheon_champions.stun2",
+    "sounds": [
+      {
+        "name": "pantheon_champions:stun2",
+        "stream": false,
+        "attenuation_distance": 16
+      }
+    ]
+  }
+}
