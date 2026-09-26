@@ -10,5 +10,13 @@
   "enchantment.pantheon_champions.anti_overload.desc": "压制过载勇士：抑制其回复，造成额外伤害并施加虚弱。",
   "enchantment.pantheon_champions.anti_unstoppable.desc": "眩晕势不可挡勇士：打断其冲锋，造成额外伤害并施加缓慢。",
 
+  "item.pantheon_champions.barrier_spawn_egg": "屏障勇士刷怪蛋",
+  "item.pantheon_champions.overload_spawn_egg": "过载勇士刷怪蛋",
+  "item.pantheon_champions.unstoppable_spawn_egg": "势不可挡勇士刷怪蛋",
+
+  "champion.pantheon_champions.barrier": "屏障勇士",
+  "champion.pantheon_champions.overload": "过载勇士",
+  "champion.pantheon_champions.unstoppable": "势不可挡勇士",
+
   "itemGroup.pantheon_champions.champions": "万神殿：勇士"
 }

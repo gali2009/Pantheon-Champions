@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:creeper",
+    "minecraft:breeze",
+    "minecraft:warden",
+    "minecraft:giant",
+    "minecraft:ghast",
+    "minecraft:blaze",
+    "minecraft:shulker"
+  ]
+}

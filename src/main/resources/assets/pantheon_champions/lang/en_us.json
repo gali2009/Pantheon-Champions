@@ -10,5 +10,13 @@
   "enchantment.pantheon_champions.anti_overload.desc": "Suppresses Overload Champions' regeneration. Deals bonus damage and inflicts Weakness.",
   "enchantment.pantheon_champions.anti_unstoppable.desc": "Staggers Unstoppable Champions, interrupting their charge. Deals bonus damage and inflicts Slowness.",
 
+  "item.pantheon_champions.barrier_spawn_egg": "Barrier Champion Spawn Egg",
+  "item.pantheon_champions.overload_spawn_egg": "Overload Champion Spawn Egg",
+  "item.pantheon_champions.unstoppable_spawn_egg": "Unstoppable Champion Spawn Egg",
+
+  "champion.pantheon_champions.barrier": "Barrier Champion",
+  "champion.pantheon_champions.overload": "Overload Champion",
+  "champion.pantheon_champions.unstoppable": "Unstoppable Champion",
+
   "itemGroup.pantheon_champions.champions": "Pantheon: Champions"
 }

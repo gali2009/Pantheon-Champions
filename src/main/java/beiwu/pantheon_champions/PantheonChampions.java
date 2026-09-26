@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import beiwu.pantheon_champions.config.ChampionsConfig;
 import beiwu.pantheon_champions.creativetab.ChampionsCreativeTabs;
+import beiwu.pantheon_champions.item.ChampionsItems;
 import beiwu.pantheon_champions.sound.ChampionsSounds;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -42,6 +43,9 @@ public final class PantheonChampions {
         // 创造模式标签页同样是「注册表」，只是键是自定义的 CreativeModeTab 注册表，
         // 所以同样挂 mod 总线。
         ChampionsCreativeTabs.CREATIVE_MODE_TABS.register(modBus);
+
+        // 物品注册（三只勇士刷怪蛋）。必须挂 mod 总线，且要早于注册事件。
+        ChampionsItems.ITEMS.register(modBus);
 
         LOG.info("Pantheon: Champions loading");
     }
