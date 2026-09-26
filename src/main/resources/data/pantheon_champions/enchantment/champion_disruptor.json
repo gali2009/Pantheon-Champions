@@ -1,0 +1,71 @@
+{
+  "description": {
+    "translate": "enchantment.pantheon_champions.champion_disruptor"
+  },
+  "exclusive_set": "#pantheon_champions:exclusive_set/champion",
+  "max_level": 1,
+  "weight": 2,
+  "anvil_cost": 4,
+  "max_cost": {
+    "base": 30,
+    "per_level_above_first": 0
+  },
+  "min_cost": {
+    "base": 15,
+    "per_level_above_first": 0
+  },
+  "slots": [
+    "mainhand"
+  ],
+  "supported_items": "#minecraft:enchantable/weapon",
+  "primary_items": "#minecraft:enchantable/sharp_weapon",
+  "effects": {
+    "minecraft:damage": [
+      {
+        "effect": {
+          "type": "minecraft:add",
+          "value": 4.0
+        },
+        "requirements": {
+          "condition": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "nbt": "{NeoForgeData:{ChampionType:1}}"
+          }
+        }
+      }
+    ],
+    "minecraft:post_attack": [
+      {
+        "enchanted": "attacker",
+        "affected": "victim",
+        "effect": {
+          "type": "minecraft:apply_mob_effect",
+          "to_apply": "minecraft:weakness",
+          "min_duration": 6.0,
+          "max_duration": 6.0,
+          "min_amplifier": 0.0,
+          "max_amplifier": 0.0
+        },
+        "requirements": {
+          "condition": "minecraft:all_of",
+          "terms": [
+            {
+              "condition": "minecraft:entity_properties",
+              "entity": "this",
+              "predicate": {
+                "nbt": "{NeoForgeData:{ChampionType:1}}"
+              }
+            },
+            {
+              "condition": "minecraft:damage_source_properties",
+              "predicate": {
+                "is_direct": true
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
