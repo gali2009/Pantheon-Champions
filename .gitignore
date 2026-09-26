@@ -1,11 +1,31 @@
-# Pantheon: Champions — build output
+# Pantheon: Champions
+
+# ---- 构建产物 ----
 build/
 .gradle/
 run/
 runs/
 Runtime/
+out/
+bin/
 
-# IDE
+# TomlHarness（gradle verifyConfig 任务）在项目根目录生成的中间产物。
+# 它每次构建都会被重新生成，属于可丢弃的构建输出，不该进版本库。
+# 真正要随模组发布的是下面这份副本，已显式跟踪：
+#     src/main/resources/pantheon_champions-common.toml
+# 两份内容一致，但只有 resources 里那份会被打进 jar。
+# 不忽略的话会出现「改了 A 忘了 B」的漂移。
+/pantheon_champions-common.toml
+
+# ---- 本地参考资料 ----
+# 上游文档仓库的浅克隆，随时可重新拉取，不属于本项目源码。
+# 不忽略的话一次 git add 会吞进上千个文件。
+docs-reference/
+
+# 项目内误克隆的副本（本地排查用，不该上传）
+/Pantheon-Champions/
+
+# ---- IDE ----
 .idea/
 *.iml
 *.ipr
@@ -15,23 +35,30 @@ Runtime/
 .classpath
 .project
 
-# OS
+# ---- 编译产物与临时文件 ----
+*.class
+*.ctxt
+.mtj.tmp/
+
+# 注意：**不要**忽略 *.jar。
+# gradle/wrapper/gradle-wrapper.jar 必须进版本库，否则别人克隆下来
+# 没有 wrapper，./gradlew 直接跑不起来。其他 jar 由 build/ 规则覆盖。
+
+# ---- 归档包 ----
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# ---- 日志与崩溃报告 ----
+*.log
+logs/
+hs_err_pid*
+replay_pid*
+
+# ---- 操作系统 ----
 Thumbs.db
 desktop.ini
 .DS_Store
-
-# logs
-*.log
-logs/
-
-# 本地参考资料：上游文档仓库的浅克隆，随时可重新拉取，
-# 不属于本项目源码，不进版本库（否则一次 git add 会吞进上千个文件）。
-docs-reference/
-
-# TomlHarness（gradle verifyConfig 任务）在项目根目录生成的中间产物。
-# 它每次构建都会被重新生成，属于可丢弃的构建输出，不该进版本库。
-# 真正要随模组发布的是下面这份副本，已显式跟踪：
-#     src/main/resources/pantheon_champions-common.toml
-# 两份内容一致，但只有 resources 里那份会被打进 jar。
-# 不忽略的话会出现「改了 A 忘了 B」的漂移。
-/pantheon_champions-common.toml

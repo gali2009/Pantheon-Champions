@@ -1,16 +1,23 @@
-# gradlew is a POSIX shell script: Git's autocrlf would rewrite it to CRLF and
-# break it on Linux/macOS ("bad interpreter: No such file or directory").
+# 换行符规范化：默认自动检测文本文件。
+# 注意：后面的规则会覆盖前面，所以「特例」必须写在下面。
+* text=auto
+
+# gradlew 是 POSIX shell 脚本。Git 的 autocrlf 会把它改成 CRLF，
+# 导致它在 Linux/macOS 上无法执行（"bad interpreter: No such file or directory"）。
 gradlew text eol=lf
 gradlew.bat text eol=crlf
 
-# Gradle wrapper jar is binary and must not be touched.
+# Gradle wrapper jar 是二进制，绝不能被改动。
 *.jar binary
 
+# 各类文本文件统一用 LF，避免跨平台 diff 噪声。
+*.java text eol=lf
 *.json text eol=lf
 *.toml text eol=lf
 *.gradle text eol=lf
 *.properties text eol=lf
-
-*.java text eol=lf
 *.md text eol=lf
+
+# PowerShell 脚本在本机（Windows PowerShell 5.1）用 CRLF。
+# 另外注意：这些脚本含中文，文件必须带 UTF-8 BOM。
 *.ps1 text eol=crlf
