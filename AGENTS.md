@@ -344,13 +344,67 @@ JEI 看附魔书能不能正常进物品栏、Jade 直接读实体 NBT。
 > 改成 `minecraft:damage_TYPO`，服务端拒绝加载（`Failed to load registries`），
 > 脚本正确抓到并点名文件；恢复后通过。
 
+## 已完成的：族类标签 + 生成时类型分配 + 刷怪蛋
+- **族类标签**已全部落地：`data/pantheon_champions/tags/entity_type/` 下
+  11 个家族 JSON（undead / zombie / skeleton / arthropod / aquatic / illager /
+  raider / piglin / slime / ender / factionless）+ `habitat/nether.json`，
+  与 DESIGN.md 第 3.2 / 4.1 节逐成员一致（由校验脚本强制）。
+- **生成时分配**：`champion/ChampionAssignment.java` 监听
+  **`EntityJoinLevelEvent`**。⚠️ **不是 `FinalizeSpawnEvent`** ——
+  字节码已确认 `Mob.finalizeSpawn` 里 **0 处** `EventHooks` 调用，
+  只有刷怪笼会触发它，覆盖面远远不够。
+  必须用 `loadedFromDisk()` 排除读档实体，否则每次读档都会重新抽签改类型。
+- **类型表**：`champion/ChampionTypes.java`（31 单态 + 2 双态 + 3 暂缓 + 2 排除），
+  逐行对应 DESIGN.md 第 5 节。**史莱姆族（slime / magma_cube）有意暂缓**——
+  该族机制要另行设计（用户决定），文档里它们归过载，属于已知偏离。
+- **被动生物闸门**：家族标签里**有意包含被动成员**（鱼、海龟、马、蜜蜂…，
+  与 DESIGN 第 3.2 节一致），所以分配前必须过 `instanceof Enemy`。
+  **不给被动生物上勇士是硬规则**，校验脚本会检查这个闸门存在。
+- **血量 / 伤害**：属性修正器，默认 **最大生命 ×3.5、攻击伤害 ×1.5**，
+  可在 `[championStats]` 配置。
+  ⚠️ **必须用 `addOrReplacePermanentModifier`，不能用 transient 版**——
+  字节码确认 `AttributeInstance.save()` **只保存 `permanentModifiers`**，
+  而 `load()` 也只把 `"modifiers"` 读回 `permanentModifiers`（两处都已核对
+  字节码：save 取 `permanentModifiers` 字段、load 写 `permanentModifiers`）。
+  用错的表现是「生成时看着正常，区块重载后倍率全丢」。
+  **这个坑有可确定性验证的判据**（不必真去关服重开）：
+  实体序列化后的 NBT 里应该能查到修正器。`data get` 底层就是
+  `Entity.saveWithoutId(...)`，与 `ChunkSerializer` 写区块用的是**同一个方法**。
+- **NBT 断言必须用路径过滤器，不能整表匹配**（实测踩过）：
+  - 键名是**小写** `attributes` / `id` / `base` / `modifiers`
+    （`LivingEntity.ATTRIBUTES_FIELD` 的 ConstantValue = `attributes`；
+    `AttributeModifier` 的 codec 字段为 `id;amount;operation`）。
+  - `NbtUtils.compareNbt` 对 ListTag **要求长度完全相等**，实体身上还有
+    movement_speed 等一堆属性，所以 `nbt={attributes:[{...}]}` 永远不匹配。
+    正确写法：`if data entity <目标> attributes[{id:"..."}].modifiers[{id:"..."}]`。
+  - 命令反馈的坑：`data get` 的输出**只发给玩家执行者**。在 function 里由
+    server 执行时输出**完全不进日志**（实测：区间标记都在、中间的值一个都没有），
+    所以要断言就用 `execute if data` + `say`，不要指望读到打印值。
+- **描边**：`champion/ChampionGlow.java`。发光本身是 `setGlowingTag(true)`，
+  但**颜色只能靠计分板队伍**——`LevelRenderer` 取 `Entity.getTeamColor()`，
+  我扫遍 NeoForge 客户端事件类，**没有任何发光/描边颜色事件**可介入。
+  队伍名 `panch_<类型>`，可配置关闭。**两个无法回避的副作用**：
+  同类型勇士互不索敌（`TargetingConditions` 走 `isAlliedTo`）、名牌被染色。
+  离开世界时由 `ChampionCleanup` 移除队伍成员，防止存档膨胀。
+- **刷怪蛋**：三只（屏障黄 / 过载蓝 / 势不可挡红），
+  `item/ChampionSpawnEggItem.java` + `ChampionsItems.java`。
+  ⚠️ **不能靠物品的 `ENTITY_DATA` 组件传类型**：字节码确认
+  `EntityType.updateCustomEntityTag` 会检查 `onlyOpCanSetNbt()` 并要求 OP，
+  普通玩家用刷怪蛋时 NBT 被**静默丢弃**。所以改为覆写 `useOn`、
+  用返回实体的 `EntityType.spawn(level, Consumer, ...)` 重载就地注入。
+
+校验脚本 `Tools/verify-champion-types.ps1`（**154 项检查，已用 4 个负例验过**：
+类型错位 / 缺映射 / 双态缺员 / 闸门缺失，均能 FAIL 并点名）。
+
 ## 已知未完成
-- 配置里 20 个数值是**初始默认值，未做平衡测试**。
-- **勇士实体行为（护盾 / 自愈 / 冲锋）与生成时类型分配尚未实现（需 Java）。**
-  ⚠️ 这也意味着**目前没有任何代码写入 `ChampionType` 这个 NBT**，
-  所以三种附魔现在能加载、能互斥、能附到武器上，
-  但**对普通怪物不产生额外效果**——这是预期状态，等实体行为落地后才连通。
-- 族类标签（`data/pantheon_champions/tags/entity_type/*.json`）还没写，
-  DESIGN.md 第 9 节有设计；目前只有附魔互斥标签。
+- 配置里数值是**初始默认值，未做平衡测试**。
+- **勇士实体行为（护盾 / 自愈 / 冲锋）尚未实现。**
+  三种附魔现在能加载、能互斥、能附到武器上，**NBT 标记也已写入**
+  （分配逻辑已连通），但**伤害减免 / 回复 / 冲锋这些实际效果还没有代码**。
+- **史莱姆族（`slime` / `magma_cube`）有意暂缓**：该族机制要另行设计。
+  它们已在 `ChampionTypes.DEFERRED` 里，不会获得勇士类型。
 - GeckoLib 的实体/模型/渲染器一行代码都还没写（实施指南见 `GECKOLIB.md`）。
+- **三种附魔目前游戏内无法正常获得**：本模组的附魔 ID 不在
+  `#minecraft:in_enchanting_table` / `on_random_loot` / `tradeable` 任何一个标签里。
+  配置里的 `enchantTableEnabled` / `lootEnabled` 因此暂时只是纸面开关。
 - `runServer` 已通过 `verify-enchant-datapack.ps1` 验证（不再是缺口）。

@@ -1,6 +1,7 @@
 package beiwu.pantheon_champions.creativetab;
 
 import beiwu.pantheon_champions.PantheonChampions;
+import beiwu.pantheon_champions.item.ChampionsItems;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -51,6 +52,12 @@ public final class ChampionsCreativeTabs {
                             "itemGroup." + PantheonChampions.MOD_ID + ".champions"))
                     .icon(() -> new ItemStack(Items.TOTEM_OF_UNDYING))
                     .displayItems((params, output) -> {
+                        // 刷怪蛋是普通物品，直接按注册顺序放进去即可。
+                        // 放在附魔书前面，因为它们更常用。
+                        for (var egg : ChampionsItems.spawnEggs().values()) {
+                            output.accept(egg.get());
+                        }
+
                         // 附魔属于数据包注册表，必须通过 params.holders() 取，
                         // 不能像物品那样用静态字段直接引用——标签页构建时才拿得到注册表。
                         var enchantments = params.holders().lookupOrThrow(Registries.ENCHANTMENT);

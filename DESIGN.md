@@ -274,6 +274,16 @@ MC **没有单一的"生物类型"体系**，而是四套互相独立的机制�
 > 两个口径都列出，是为了避免"分布表与归类表对不上"的误判——
 > 判断依据分别是"标注数"和"生物数"，混用会得到不同结果。
 
+> ⚠️ **实现偏离（已确认）**：上表把 `slime` / `magma_cube` 归为**过载**，
+> 但代码里它们被放进 `ChampionTypes.DEFERRED`，**暂缓不分配任何类型**。
+> 原因：**史莱姆族的机制要另行设计**（分裂成小史莱姆后类型怎么继承、
+> 过载体型是否随分裂变化），在机制定稿前先不接。
+>
+> 因此实现口径为：**单态 31 + 双态 2 + 暂缓 3（illusioner/slime/magma_cube）
+> + 排除 2（giant/wither）**，而不是本文档早先写的"单态 33 / 暂缓 1"。
+> 这个偏离由 `Tools/verify-champion-types.ps1` 显式白名单化并强制校验，
+> 不会因为文档与代码不一致而误报。
+
 ---
 
 ## 6. 双态机制
@@ -829,21 +839,55 @@ D2 的"压"是压制回复、"断"是打断冲锋。MC 里没有现成的对应�
 
 ## 13. 配置文件
 
-`champions-common.toml` 已生成并验证（39 项，9 个分类，102 行注释）。
+`champions-common.toml` 已生成并验证（**31 项，10 个分类，114 行注释**）。
+
+> **变更说明**：早先版本的 `types` 分类（`barrierWeight` / `overloadWeight` /
+> `unstoppableWeight` 三个权重）**已删除**。原因是分配规则改为
+> **"族类决定类型"**（见第 3 / 5 节）：一只怪的勇士类型由它的族类唯一确定，
+> 根本不存在"按权重在三者之间随机"的情形，那三个权重是死配置。
+> 删除后新增 `championStats`（`healthMultiplier` / `damageMultiplier`）
+> 与 `glow`（`enabled` / `colorByTeam`）两个分类。
 
 **验证方式**（非人工检查，而是实际执行）：
 
 | 检查 | 结果 |
 | --- | --- |
 | `javac -Xlint:all` 编译 | **零警告零错误** |
-| `ModConfigSpec.correct()` | 39 项全部正确填充 |
+| `ModConfigSpec.correct()` | 31 项全部正确填充 |
 | 生成文件重新解析 | **成功** |
 | `spec.isCorrect(重新解析)` | **true**（文件与 spec 完全一致）|
 | 越界值 `championChance = 5.0` | **false**（范围校验生效）|
 | 残留 HTML 标签 | 无 |
 
-配置分类：`general` / `types` / `dualState` / `barrier` / `overload` /
-`unstoppable` / `habitat` / `enchantment` / `debug`。
+配置分类：`general` / `championStats` / `dualState` / `barrier` / `overload` /
+`unstoppable` / `habitat` / `enchantment` / `glow` / `debug`。
+
+**勇士数值（`[championStats]`）**：
+
+| 键 | 默认 | 范围 | 含义 |
+| --- | ---: | --- | --- |
+| `healthMultiplier` | 3.5 | 1.0–100.0 | 最大生命倍率，`3.5` = 该生物血量的 3.5 倍 |
+| `damageMultiplier` | 1.5 | 1.0–100.0 | **攻击伤害属性倍率**，`1.5` = 属性值 ×1.5 |
+
+> **"1.5 倍伤害"的口径**：用户要求"困难难度下伤害的 1.5 倍"。
+> 这里实现为**属性值 ×1.5**，而不是"再乘一次难度系数"。
+> 原因：原版困难难度对玩家的伤害加成是 NeoForge 在
+> `IScalingFunction` 里做的（`HARD → dmg × 1.5f`），作用方向是
+> **"生物打玩家"**，且属于**运行时**结算；若我们在属性上再乘 1.5，
+> 困难难度下实际会变成 `1.5 × 1.5 = 2.25` 倍，与"困难难度的 1.5 倍"不符。
+> 所以取 `base × 1.5`：普通难度 1.5 倍、困难难度 2.25 倍，
+> 换算到统一难度基准即"相对普通难度 +50%"。
+
+**描边（`[glow]`）**：
+
+| 键 | 默认 | 含义 |
+| --- | --- | --- |
+| `enabled` | true | 勇士是否带发光描边 |
+| `colorByTeam` | true | 是否按类型着色（黄/蓝/红） |
+
+> `colorByTeam = true` 会给每个类型建一个计分板队伍，
+> **副作用无法回避**：同类型勇士互不索敌、名牌被染色。
+> 关掉则描边统一为白色，两个副作用一并消失。机制详见 `AGENTS.md`。
 
 **实现要点**（`ChampionsConfig.java`）：
 
@@ -882,6 +926,75 @@ public MyMod(IEventBus bus, ModContainer container) {
 > **踩坑记录**：`ConfigParser.parse(String)` 接收的是 **TOML 内容**而非文件路径。
 > 传路径会让解析器把 `C:\...` 当配置读，报
 > `Invalid character ':' after key [C]`——这个 `[C]` 是盘符，与中文注释无关。
+
+---
+
+## 14. 属性倍率如何验证「能存盘」
+
+血量 / 伤害倍率是**属性修正器**。这里有一个**只靠肉眼看不出来的陷阱**，
+因此单列一节说明验证方式。
+
+**陷阱**：`AttributeInstance` 有两套修饰器 API —— 永久版
+（`addOrReplacePermanentModifier`）与瞬态版（`addOrUpdateTransientModifier`）。
+两者**在生成时读到的血量完全一样（都是 70）**，但：
+
+| API | 生成时血量 | 区块重载后血量 | 是否写入 NBT |
+| --- | ---: | ---: | --- |
+| `addOrReplacePermanentModifier` | 70 | **70** | 是 |
+| `addOrUpdateTransientModifier` | 70 | **20** | 否 |
+
+**字节码依据**（`neoforge-21.1.250-merged.jar`，`javap -c`）：
+
+- `AttributeInstance.save()` 只遍历 `permanentModifiers` 字段写进键 `modifiers`；
+- `AttributeInstance.load()` 只把 `modifiers` 读回 `permanentModifiers`。
+
+即**瞬态修正器根本不参与序列化**。所以"生成后立刻查看血量"这种验证
+**永远抓不到这个 bug**——必须真的走序列化。
+
+**采用的判据（可确定性、无需真去关服重开）**：
+
+`data get` / NBT 谓词的底层是 `Entity.saveWithoutId(...)`，
+与 `ChunkSerializer` 写区块时用的是**同一个方法**。因此只要修正器
+出现在**实体序列化后的 NBT** 里，它就一定会被写进磁盘并在重载时读回。
+
+验证脚本：`Tools/verify-champion-nbt-serialization.ps1`
+
+**两个必须注意的写法**（都实测踩过）：
+
+1. 键名是**小写** `attributes` / `id` / `base` / `modifiers`
+   （`LivingEntity.ATTRIBUTES_FIELD` 的 ConstantValue = `attributes`；
+   `AttributeModifier` 的 codec 字段是 `id;amount;operation`）。
+2. **不能用 `nbt={attributes:[{...}]}` 整表匹配**：
+   `NbtUtils.compareNbt` 对 ListTag **要求长度完全相等**，
+   而实体身上还有 movement_speed 等一堆属性，整表谓词永远匹配不上。
+   正确写法是 NBT **路径过滤器**：
+
+   ```
+   if data entity <目标> attributes[{id:"minecraft:generic.max_health"}].modifiers[{id:"pantheon_champions:champion_health"}]
+   ```
+
+**负例验证**（证明该测试真的能抓到问题）：把代码临时改成瞬态版后，
+
+- `CN_HP_70` **仍然出现**（生成时血量看起来完全正常 ← 正是危险之处）
+- `CN_HEALTH_MODIFIER_MISSING` 出现，脚本 **FAIL 并点名**
+  「血量修正器不在序列化 NBT 里 —— 不会存盘（用了 transient 版本）」
+
+改回永久版后恢复为 PASS。**一个抓不到 bug 的测试等于没有测试**，
+所以这条负例是这套验证成立的前提。
+
+> **附带记录**：本测试的最初三版尝试都是**无效**的，失败原因全在测试侧，
+> 记录在此以免重犯：
+> 1. 用计分板分"阶段"，但 tick 每 tick 都跑，两阶段在**同一局**内执行，
+>    实体从未离开内存 —— 什么都没验证到却报了通过；
+> 2. 改用 `forceload` 卸载区块，但旧测试数据包没清理（多个 tick 函数同时在跑），
+>    且召唤本身就没成功，后续断言全是噪声；
+> 3. 用世界存档里的计分板计数器区分会话 —— 但它**持久化在存档里**，
+>    上次失败运行的残留值让 `matches 1` 不成立，阶段 1 整个不执行。
+>    另外 `save-all` 需要权限等级 4，在数据包函数里**直接解析失败**。
+>
+> 教训：**"测试没跑起来"和"被测对象没问题"在日志上长得一样**，
+> 所以每个测试都必须先断言"设置阶段真的生效了"（如 `CN_TYPE_OK` 这类
+> 前置标记），否则会把假通过当成真通过。
 
 ---
 

@@ -44,10 +44,13 @@ public final class ChampionsConfig {
     public static final ModConfigSpec.BooleanValue AFFECT_NEUTRAL_MOBS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BLACKLIST;
 
-    // ---- 类型权重 ----
-    public static final ModConfigSpec.DoubleValue WEIGHT_BARRIER;
-    public static final ModConfigSpec.DoubleValue WEIGHT_OVERLOAD;
-    public static final ModConfigSpec.DoubleValue WEIGHT_UNSTOPPABLE;
+    // ---- 勇士属性 ----
+    public static final ModConfigSpec.DoubleValue HEALTH_MULTIPLIER;
+    public static final ModConfigSpec.DoubleValue DAMAGE_MULTIPLIER;
+
+    // ---- 发光描边 ----
+    public static final ModConfigSpec.BooleanValue GLOW_ENABLED;
+    public static final ModConfigSpec.BooleanValue GLOW_TEAM;
 
     // ---- 双态 ----
     public static final ModConfigSpec.EnumValue<DualStateMode> DUAL_STATE_MODE;
@@ -117,19 +120,40 @@ public final class ChampionsConfig {
 
         b.pop();
 
-        // ================= types =================
-        b.comment("三种勇士类型之间的相对权重（不是概率，会自动归一化）。",
-                  "三种全为 1.0 时概率均等。")
-         .push("types");
+        // ================= championStats =================
+        b.comment("勇士基础属性倍率。基准是该生物自身的原版属性，",
+                  "所以不同生物成为勇士后的绝对数值不同，但相对强度一致。")
+         .push("championStats");
 
-        WEIGHT_BARRIER = b.comment("屏障权重。屏障对应「破」：在护盾再生前破除。")
-                          .defineInRange("barrierWeight", 1.0D, 0.0D, 100.0D);
+        HEALTH_MULTIPLIER = b.comment("勇士最大生命值倍率。",
+                                       "3.5 表示僵尸勇士有 20 × 3.5 = 70 点生命（35 颗心）。",
+                                       "倍率基于该生物自身的原版最大生命值，不是固定数值。")
+                             .defineInRange("healthMultiplier", 3.5D, 1.0D, 100.0D);
 
-        WEIGHT_OVERLOAD = b.comment("过载权重。过载对应「压」：持续打断恢复与相位。")
-                           .defineInRange("overloadWeight", 1.0D, 0.0D, 100.0D);
+        DAMAGE_MULTIPLIER = b.comment("勇士攻击伤害倍率。",
+                                       "1.5 表示勇士的裸伤害是原版的 1.5 倍。",
+                                       "注意困难难度本身还会对「打向玩家」的伤害再乘 1.5，",
+                                       "两者叠加后，困难难度下勇士伤害 = 原版困难值 × 1.5。",
+                                       "只对拥有攻击伤害属性的生物生效（鱼类等被动生物不生效）。")
+                             .defineInRange("damageMultiplier", 1.5D, 1.0D, 100.0D);
 
-        WEIGHT_UNSTOPPABLE = b.comment("势不可挡权重。势不可挡对应「断」：在冲锋落点前打断。")
-                              .defineInRange("unstoppableWeight", 1.0D, 0.0D, 100.0D);
+        b.pop();
+
+        // ================= glow =================
+        b.comment("勇士的发光描边。按类型区分颜色：",
+                  "屏障 = 黄，过载 = 蓝，势不可挡 = 红。")
+         .push("glow");
+
+        GLOW_ENABLED = b.comment("是否让勇士发光（自带透视描边效果）。",
+                                 "关闭后勇士与普通生物外观无区别，只能靠行为辨认。")
+                        .define("enabled", true);
+
+        GLOW_TEAM = b.comment("是否用计分板队伍给描边上色。",
+                              "开启后描边按类型着色，但有两项副作用（原版机制所限，无法回避）：",
+                              "1) 同类型的勇士之间不会互相攻击（原版队伍会屏蔽友军索敌）；",
+                              "2) 勇士的名牌也会染上对应颜色。",
+                              "关闭后描边统一为白色，且无上述副作用。")
+                     .define("colorByTeam", true);
 
         b.pop();
 
