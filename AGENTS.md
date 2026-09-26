@@ -79,11 +79,20 @@ Gradle 9.4.0（走腾讯镜像，因为 `services.gradle.org` 在本机证书链
   注册 `ChampionsConfig.SPEC` 为 `ModConfig.Type.COMMON`）
 - `gradlew build` **BUILD SUCCESSFUL**，产出
   `build/libs/pantheon_champions-1.21.1-neoforge-0.1.0.jar`
+- **`gradlew runClient` 已实机验证**：日志出现
+  `Pantheon: Champions 0.1.0 (pantheon_champions)`、
+  `[Pantheon: Champions/]: Pantheon: Champions loading`、
+  `Reloading ResourceManager: ... mod/pantheon_champions`，
+  游戏正常进到标题界面，并在 `run/config/` 生成配置文件。
+
+> 游戏写入的 `run/config/pantheon_champions-common.toml` 与仓库里的副本
+> **键值完全相同，仅顺序不同**（NeoForge 用文件配置，键序＝声明顺序；
+> TomlHarness 用内存配置）。以游戏写入的顺序为准。
 
 ## 已知未完成
-- 还没有 `runClient`/`runServer` 的实机验证（任务已配好，但没真启动过游戏）。
 - 配置里 20 个数值是**初始默认值，未做平衡测试**。
 - 勇士实体行为（护盾 / 自愈 / 冲锋）与生成时类型分配尚未实现（需 Java）。
 - 族类标签（`data/pantheon_champions/tags/entity_type/*.json`）还没写，
   DESIGN.md 第 9 节有设计；目前只有附魔互斥标签。
 - 三种附魔的 JSON 定义还没写（已有互斥标签，附魔本体缺）。
+- `runServer` 未单独验证（两者 mod 加载路径相同）。
