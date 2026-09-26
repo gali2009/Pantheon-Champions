@@ -76,14 +76,22 @@ GeckoLib 4.9.3。
 
 ## 本地参考资料
 `docs-reference/`（已 gitignore）是上游文档的浅克隆，不用反复抓网页：
-- `geckolib-wiki/` —— 新版 wiki 源码。4.x 内容在
-  `versioned_docs/version-geckolib4/`，但**那是存根**，只有版本表。
-- `geckolib4-old-wiki/` —— **4.x 的权威文档**（官方在存根里指向这里）。
-  看 `Installation-(Geckolib4).md`、`Geckolib-Entities-(Geckolib4).md`、
-  `The-Animation-Controller-(Geckolib4).md`。
+- `geckolib-wiki/` —— 新版 wiki 源码。**`docs/` 是 GeckoLib 5 的文档，本项目
+  用不了**（`docs/index.mdx` 自己写着 "Wiki for GeckoLib5"）。
+  `versioned_docs/version-geckolib4/` **只有一页存根**，仅版本表。
+- `geckolib4-old-wiki/` —— 4.x 文档。**结构可用，但示例代码过期**
+  （`new ResourceLocation(...)`、`getModelLocation()` 在 4.9.3 都编译不过）。
 - `neoforge-docs/versioned_docs/version-1.21.1/` —— NeoForge 官方文档
   **1.21.1 版本**（63 篇）。注意要用带版本号的目录，**不要读 `docs/`**，
   那是最新版（1.21.11），API 与本项目不一致。
+
+**GeckoLib 4.9.3 的权威依据是 jar 本身，不是任何 wiki**：
+- 看签名：`javap -p -cp <geckolib-neoforge-1.21.1-4.9.3.jar> <类名>`
+  （两个 jar 都在 `~/.gradle/caches/modules-2/files-2.1/software.bernie.geckolib/`）
+- 看源码：解包 `geckolib-neoforge-1.21.1-4.9.3-sources.jar`
+
+本模组的 GeckoLib 实施细节（类结构、路径规则、坑）已整理到 **`GECKOLIB.md`**，
+写实体/模型/渲染器前先读它，不要直接照 wiki 抄。
 
 需要更新时：`git -C docs-reference/<目录> pull`。
 
@@ -182,10 +190,41 @@ GeckoLib 4.9.3。
 > **键值完全相同，仅顺序不同**（NeoForge 用文件配置，键序＝声明顺序；
 > TomlHarness 用内存配置）。以游戏写入的顺序为准。
 
+## 已完成的：三种勇士附魔
+`src/main/resources/data/pantheon_champions/enchantment/` 下三个 JSON，
+均 `max_level: 1`、互斥（走 `#pantheon_champions:exclusive_set/champion`）：
+
+| 附魔 | 勇士类型 | 加伤 | 命中效果 |
+| --- | --- | --- | --- |
+| `champion_breaker` | 屏障 (0) | +4 | 无 |
+| `champion_disruptor` | 过载 (1) | +4 | 虚弱 I / 6s |
+| `champion_stagger` | 势不可挡 (2) | +4 | 缓慢 III / 4s |
+
+条件用 **NBT 判定** `{NeoForgeData:{ChampionType:N}}`，**不是**
+`entity_properties.type`——`type` 匹配实体类型，而"是不是勇士"是实例运行时状态，
+用 `type` 会让所有僵尸都吃加伤。**未采用 `run_function`**：它延迟解析函数引用，
+函数不存在时加载期不报错、只在命中时静默失败。
+
+验证脚本（三层，**都要能跑**）：
+- `Tools/verify-enchant-structure.ps1` —— 19 项静态检查 + 代入双向互斥算法推导
+- `Tools/verify-enchant-datapack.ps1` —— 启动**专用服务端**验证注册表解析
+- `Tools/verify-enchant-in-world.ps1` / `verify-enchantments.ps1` —— 进世界 / 资源包路径
+
+> **关键认知**：客户端标题界面只能证明**资源包**（sounds/lang/models），
+> 证明不了**数据包注册表**（enchantment/tags）。附魔只在**服务端启动**时构建，
+> 所以停在标题界面时"无报错"是**假证据**。这两件事必须分开验证。
+>
+> `verify-enchant-datapack.ps1` 已用**负例**验过：故意把 `minecraft:damage`
+> 改成 `minecraft:damage_TYPO`，服务端拒绝加载（`Failed to load registries`），
+> 脚本正确抓到并点名文件；恢复后通过。
+
 ## 已知未完成
 - 配置里 20 个数值是**初始默认值，未做平衡测试**。
-- 勇士实体行为（护盾 / 自愈 / 冲锋）与生成时类型分配尚未实现（需 Java）。
+- **勇士实体行为（护盾 / 自愈 / 冲锋）与生成时类型分配尚未实现（需 Java）。**
+  ⚠️ 这也意味着**目前没有任何代码写入 `ChampionType` 这个 NBT**，
+  所以三种附魔现在能加载、能互斥、能附到武器上，
+  但**对普通怪物不产生额外效果**——这是预期状态，等实体行为落地后才连通。
 - 族类标签（`data/pantheon_champions/tags/entity_type/*.json`）还没写，
   DESIGN.md 第 9 节有设计；目前只有附魔互斥标签。
-- 三种附魔的 JSON 定义还没写（已有互斥标签，附魔本体缺）。
-- `runServer` 未单独验证（两者 mod 加载路径相同）。
+- GeckoLib 的实体/模型/渲染器一行代码都还没写（实施指南见 `GECKOLIB.md`）。
+- `runServer` 已通过 `verify-enchant-datapack.ps1` 验证（不再是缺口）。
