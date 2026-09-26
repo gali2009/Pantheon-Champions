@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import beiwu.pantheon_champions.config.ChampionsConfig;
+import beiwu.pantheon_champions.creativetab.ChampionsCreativeTabs;
 import beiwu.pantheon_champions.sound.ChampionsSounds;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -15,8 +16,8 @@ import net.neoforged.fml.config.ModConfig;
  *
  * <p>目标版本：Minecraft 1.21.1 / NeoForge 21.1.250。</p>
  *
- * <p>要移植的三个动词：屏障（破 —— 在护盾回满前打破它）、
- * 过载（压 —— 压制它的自愈）、势不可挡（断 —— 在起手窗口内打断冲锋）。</p>
+ * <p>要移植的三个：屏障（在护盾回满前打破它）、
+ * 过载（压制它的自愈）、势不可挡（在起手窗口内打断冲锋）。</p>
  *
  * <p>设计文档见项目根目录的 {@code DESIGN.md}，族类表、勇士归类表，
  * 以及所有已核实的 API 约束都记录在那里。</p>
@@ -37,6 +38,10 @@ public final class PantheonChampions {
         // 声音属于原版内置注册表，所以 DeferredRegister 需要的是 mod 总线，
         // 而不是自定义注册表键。
         ChampionsSounds.SOUND_EVENTS.register(modBus);
+
+        // 创造模式标签页同样是「注册表」，只是键是自定义的 CreativeModeTab 注册表，
+        // 所以同样挂 mod 总线。
+        ChampionsCreativeTabs.CREATIVE_MODE_TABS.register(modBus);
 
         LOG.info("Pantheon: Champions loading");
     }

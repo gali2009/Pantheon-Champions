@@ -1,7 +1,14 @@
 {
   "subtitles.pantheon_champions.stun1": "Champion staggered",
   "subtitles.pantheon_champions.stun2": "Champion disrupted",
-  "enchantment.pantheon_champions.champion_breaker": "Champion Breaker",
-  "enchantment.pantheon_champions.champion_disruptor": "Champion Disruptor",
-  "enchantment.pantheon_champions.champion_stagger": "Champion Stagger"
+
+  "enchantment.pantheon_champions.anti_barrier": "Anti-Barrier",
+  "enchantment.pantheon_champions.anti_overload": "Anti-Overload",
+  "enchantment.pantheon_champions.anti_unstoppable": "Anti-Unstoppable",
+
+  "enchantment.pantheon_champions.anti_barrier.desc": "Breaks Barrier Champions' shields. Deals bonus damage to Barrier Champions.",
+  "enchantment.pantheon_champions.anti_overload.desc": "Suppresses Overload Champions' regeneration. Deals bonus damage and inflicts Weakness.",
+  "enchantment.pantheon_champions.anti_unstoppable.desc": "Staggers Unstoppable Champions, interrupting their charge. Deals bonus damage and inflicts Slowness.",
+
+  "itemGroup.pantheon_champions.champions": "Pantheon: Champions"
 }

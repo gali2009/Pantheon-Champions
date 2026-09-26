@@ -1,7 +1,7 @@
 {
   "values": [
-    "pantheon_champions:champion_breaker",
-    "pantheon_champions:champion_disruptor",
-    "pantheon_champions:champion_stagger"
+    "pantheon_champions:anti_barrier",
+    "pantheon_champions:anti_overload",
+    "pantheon_champions:anti_unstoppable"
   ]
 }

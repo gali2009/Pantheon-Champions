@@ -1,7 +1,14 @@
 {
   "subtitles.pantheon_champions.stun1": "勇士被击晕",
   "subtitles.pantheon_champions.stun2": "勇士被压制",
-  "enchantment.pantheon_champions.champion_breaker": "勇士克星·破",
-  "enchantment.pantheon_champions.champion_disruptor": "勇士克星·压",
-  "enchantment.pantheon_champions.champion_stagger": "勇士克星·断"
+
+  "enchantment.pantheon_champions.anti_barrier": "反屏障",
+  "enchantment.pantheon_champions.anti_overload": "反过载",
+  "enchantment.pantheon_champions.anti_unstoppable": "反势不可挡",
+
+  "enchantment.pantheon_champions.anti_barrier.desc": "克制屏障勇士：破除其护盾，并对其造成额外伤害。",
+  "enchantment.pantheon_champions.anti_overload.desc": "压制过载勇士：抑制其回复，造成额外伤害并施加虚弱。",
+  "enchantment.pantheon_champions.anti_unstoppable.desc": "眩晕势不可挡勇士：打断其冲锋，造成额外伤害并施加缓慢。",
+
+  "itemGroup.pantheon_champions.champions": "万神殿：勇士"
 }

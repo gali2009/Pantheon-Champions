@@ -462,9 +462,9 @@ public final class ChampionFamilies {
 
 | 附魔 | 对应勇士 | 动词 | 效果方向 |
 | --- | --- | --- | --- |
-| `champion_breaker` | 屏障 | 破 | 破除护盾 |
-| `champion_disruptor` | 过载 | 压 | 压制自愈 / 相位 |
-| `champion_stagger` | 势不可挡 | 断 | 造成震慑 |
+| `anti_barrier` | 屏障 | 破 | 破除护盾 |
+| `anti_overload` | 过载 | 压 | 压制自愈 / 相位 |
+| `anti_unstoppable` | 势不可挡 | 断 | 造成震慑 |
 
 ### 10.2 1.21.1 附魔机制（实测确认）
 
@@ -564,9 +564,9 @@ Field exclusiveSet:Lnet/minecraft/core/HolderSet;   // 单个 HolderSet，不是
 // data/pantheon_champions/tags/enchantment/exclusive_set/champion.json
 {
   "values": [
-    "pantheon_champions:champion_breaker",
-    "pantheon_champions:champion_disruptor",
-    "pantheon_champions:champion_stagger"
+    "pantheon_champions:anti_barrier",
+    "pantheon_champions:anti_overload",
+    "pantheon_champions:anti_unstoppable"
   ]
 }
 ```
@@ -650,14 +650,41 @@ equipment; subPredicate; periodicTick; vehicle; passenger; targetedEntity; team;
 
 #### 10.8.1 三个附魔
 
-| 附魔 | 勇士类型 | 动词 | 加伤 | 命中效果 |
+| 附魔 ID | 显示名（中 / 英） | 勇士类型 | 加伤 | 命中效果 |
 | --- | --- | --- | --- | --- |
-| `champion_breaker` | 屏障 (0) | 破 | +4 | 无（破盾交给实体侧 Java） |
-| `champion_disruptor` | 过载 (1) | 压 | +4 | 虚弱 I，6 秒 |
-| `champion_stagger` | 势不可挡 (2) | 断 | +4 | 缓慢 III，4 秒 |
+| `anti_barrier` | 反屏障 / Anti-Barrier | 屏障 (0) | +4 | 无（破盾交给实体侧 Java） |
+| `anti_overload` | 反过载 / Anti-Overload | 过载 (1) | +4 | 虚弱 I，6 秒 |
+| `anti_unstoppable` | 反势不可挡 / Anti-Unstoppable | 势不可挡 (2) | +4 | 缓慢 III，4 秒 |
+
+**命名对齐《命运2》**：D2 里三种反制弹种就叫 Anti-Barrier / Anti-Overload /
+Anti-Unstoppable（中文社区译作反屏障 / 反过载 / 反势不可挡），
+所以 ID 与显示名都直接用这套，不再自己造「勇士克星·破/压/断」。
+
+> **ID 是半永久的东西**：注册 ID 一旦发布，改动会让已有存档里的附魔
+> 变成无效数据。趁现在只有骨架时改名是免费的，发布后就不是了。
 
 三个都 `max_level: 1`、`weight: 2`、`anvil_cost: 4`、
 `slots: ["mainhand"]`、`supported_items: "#minecraft:enchantable/weapon"`。
+
+#### 10.8.1.1 兼容 Enchantment Descriptions 模组
+
+描述写在 lang 文件里，**键格式**（已从该模组 1.21.1 分支的
+`assets/enchdesc/lang/en_us.json` 核实）：
+
+```
+enchantment.<命名空间>.<附魔路径>.desc
+```
+
+即显示名键后面加 `.desc`。所以：
+
+| 键 | 中文 | 英文 |
+| --- | --- | --- |
+| `...anti_barrier.desc` | 克制屏障勇士：破除其护盾，并对其造成额外伤害。 | Breaks Barrier Champions' shields... |
+| `...anti_overload.desc` | 压制过载勇士：抑制其回复，造成额外伤害并施加虚弱。 | Suppresses Overload Champions' regeneration... |
+| `...anti_unstoppable.desc` | 眩晕势不可挡勇士：打断其冲锋，造成额外伤害并施加缓慢。 | Staggers Unstoppable Champions... |
+
+这三种附魔**不依赖该模组**：没装 ED 时 `.desc` 键只是一条没被引用的
+翻译，不影响任何功能。
 
 **为什么选虚弱 / 缓慢而不是直接写效果**：
 D2 的"压"是压制回复、"断"是打断冲锋。MC 里没有现成的对应效果，
@@ -707,9 +734,9 @@ D2 的"压"是压制回复、"断"是打断冲锋。MC 里没有现成的对应�
 这两件事必须分开验证。
 
 ```json
-// 实际实现（data/pantheon_champions/enchantment/champion_breaker.json）
+// 实际实现（data/pantheon_champions/enchantment/anti_barrier.json）
 {
-  "description": { "translate": "enchantment.pantheon_champions.champion_breaker" },
+  "description": { "translate": "enchantment.pantheon_champions.anti_barrier" },
   "exclusive_set": "#pantheon_champions:exclusive_set/champion",
   "max_level": 1,
   "weight": 2,
@@ -734,16 +761,44 @@ D2 的"压"是压制回复、"断"是打断冲锋。MC 里没有现成的对应�
 }
 ```
 
-`disruptor` / `stagger` 在此基础上多一个 `minecraft:post_attack` 块，
+`anti_overload` / `anti_unstoppable` 在此基础上多一个 `minecraft:post_attack` 块，
 条件是 `all_of`：NBT 匹配 + `damage_source_properties.is_direct`
 （照抄原版 `bane_of_arthropods` 的写法，确保只有直接命中才触发）。
+
+### 10.10 创造模式标签页
+
+**先说限制**：创造标签页只能放**物品**（`ItemLike`），而附魔是数据包注册表里的
+一条记录，**不是物品**。所以「附魔标签页」没法直接列出附魔本身，
+只能列出**附了这些附魔的附魔书**。原版也是这个逻辑——原版创造模式根本不提供
+附魔书，附魔要靠铁砧或 `/enchant`。
+
+当前内容：三本附魔书（`enchanted_book` 各附一种勇士附魔）。
+图标：**不死图腾**（`Items.TOTEM_OF_UNDYING`，用户指定，语义贴合"扛住致命一击"；
+等有正式图标资源再换）。
+
+实现要点：
+
+- 标签页是**注册表**（`Registries.CREATIVE_MODE_TAB`），要 `DeferredRegister`
+  挂到 mod 事件总线。
+- 附魔必须通过 `params.holders().lookupOrThrow(Registries.ENCHANTMENT)` 取，
+  **不能**像物品那样用静态字段引用——标签页构建时注册表才可用。
+- 用 `getOrThrow` 而不是 `get`：附魔是本模组自己的数据包文件，
+  缺了就是打包错误，应该立刻炸出来，而不是静默少一本书。
+- ⚠️ `displayItems` **只在客户端打开创造物品栏时执行**。
+  服务端启动、`gradlew build` 都不会跑它——所以「编译通过」和
+  「服务端无报错」都证明不了标签页能用。为此加了静态交叉校验
+  （`verify-enchant-structure.ps1` 第 9 节）：把 Java 里 `CHAMPION_ENCHANTMENTS`
+  数组的字符串与 `data/.../enchantment/` 下的实际文件名比对，
+  **已用负例验证过**（把 `anti_barrier` 拼成 `anti_barrior`，检查会 FAIL 并点名两侧）。
+
+标签页标题键：`itemGroup.pantheon_champions.champions`。
 
 ### 10.9 附魔定义骨架（历史草稿，已被 10.8 取代）
 
 ```json
-// data/pantheon_champions/enchantment/champion_breaker.json
+// data/pantheon_champions/enchantment/anti_barrier.json
 {
-  "description": { "translate": "enchantment.pantheon_champions.champion_breaker" },
+  "description": { "translate": "enchantment.pantheon_champions.anti_barrier" },
   "exclusive_set": "#pantheon_champions:exclusive_set/champion",
   "max_level": 1,
   "weight": 2,
