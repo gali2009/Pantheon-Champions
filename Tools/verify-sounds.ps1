@@ -39,7 +39,20 @@ while ((Get-Date) -lt $deadline) {
 
 Write-Output "关闭游戏..."
 if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
-Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+# 只收掉「本项目」的 DevLaunch 游戏进程。
+# ⚠️ 这里**绝对不能**写成 `Get-Process java | Stop-Process -Force`：
+#     那条命令会连带杀掉 (1) Gradle 守护进程，
+#     (2) **用户自己正在跑的其他项目**的游戏客户端。
+#     实测踩过：它把用户另一个项目的 runClient 给杀了。
+#     改为按命令行过滤——DevLaunch 的命令行里一定带本项目的绝对路径
+#     （-Dfml.modFolders=pantheon_champions%%<项目路径>\build\... ）。
+Get-CimInstance Win32_Process -Filter "Name='java.exe'" -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.CommandLine -and
+        $_.CommandLine -match 'devlaunch' -and
+        $_.CommandLine -match [regex]::Escape($root)
+    } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 3
 
 Write-Output ""
