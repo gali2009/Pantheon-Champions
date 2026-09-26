@@ -1,6 +1,6 @@
 {
   "description": {
-    "translate": "enchantment.pantheon_champions.champion_disruptor"
+    "translate": "enchantment.pantheon_champions.anti_overload"
   },
   "exclusive_set": "#pantheon_champions:exclusive_set/champion",
   "max_level": 1,

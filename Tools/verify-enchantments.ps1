@@ -61,7 +61,7 @@ if ($bad) {
 
 Write-Output ""
 Write-Output "=== 我们的附魔是否出现在日志里 ==="
-$hit = Select-String -Path $log -Pattern 'champion_breaker|champion_disruptor|champion_stagger' -ErrorAction SilentlyContinue
+$hit = Select-String -Path $log -Pattern 'anti_barrier|anti_overload|anti_unstoppable' -ErrorAction SilentlyContinue
 if ($hit) {
     $hit | Select-Object -First 10 | ForEach-Object { Write-Output ("  " + $_.Line.Trim()) }
 } else {

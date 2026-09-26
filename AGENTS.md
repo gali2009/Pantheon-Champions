@@ -194,21 +194,46 @@ GeckoLib 4.9.3。
 `src/main/resources/data/pantheon_champions/enchantment/` 下三个 JSON，
 均 `max_level: 1`、互斥（走 `#pantheon_champions:exclusive_set/champion`）：
 
-| 附魔 | 勇士类型 | 加伤 | 命中效果 |
-| --- | --- | --- | --- |
-| `champion_breaker` | 屏障 (0) | +4 | 无 |
-| `champion_disruptor` | 过载 (1) | +4 | 虚弱 I / 6s |
-| `champion_stagger` | 势不可挡 (2) | +4 | 缓慢 III / 4s |
+| 附魔 ID | 显示名（中） | 勇士类型 | 加伤 | 命中效果 |
+| --- | --- | --- | --- | --- |
+| `anti_barrier` | 反屏障 | 屏障 (0) | +4 | 无 |
+| `anti_overload` | 反过载 | 过载 (1) | +4 | 虚弱 I / 6s |
+| `anti_unstoppable` | 反势不可挡 | 势不可挡 (2) | +4 | 缓慢 III / 4s |
+
+**命名对齐《命运2》**（Anti-Barrier / Anti-Overload / Anti-Unstoppable）。
+早期用的 `champion_breaker` 等名字已废弃——**ID 一旦发布就不能再改**，
+改了会让存档里的附魔变无效数据。
+
+**兼容 Enchantment Descriptions 模组**：描述键是
+`enchantment.<命名空间>.<附魔路径>.desc`（从该模组 1.21.1 分支核实）。
+不依赖该模组，没装时只是没被引用的翻译。
 
 条件用 **NBT 判定** `{NeoForgeData:{ChampionType:N}}`，**不是**
 `entity_properties.type`——`type` 匹配实体类型，而"是不是勇士"是实例运行时状态，
 用 `type` 会让所有僵尸都吃加伤。**未采用 `run_function`**：它延迟解析函数引用，
 函数不存在时加载期不报错、只在命中时静默失败。
 
+## 已完成的：创造模式标签页
+`beiwu/pantheon_champions/creativetab/ChampionsCreativeTabs.java`，
+标签页 id `champions`，图标**不死图腾**（用户指定）。
+
+⚠️ **创造标签页只能放物品，附魔不是物品**，所以里面放的是
+**三本附了勇士附魔的附魔书**。想「列出附魔本身」在 MC 里做不到。
+
+⚠️ **`displayItems` 只在客户端打开创造物品栏时执行**——服务端启动和
+`gradlew build` 都不跑它。所以标签页没法靠日志证明正确，
+真正管用的是**静态交叉校验**：`verify-enchant-structure.ps1` 第 9 节
+把 Java 里 `CHAMPION_ENCHANTMENTS` 数组的字面量与
+`data/.../enchantment/` 下的实际文件名比对，并检查图标是不死图腾。
+**该检查已用负例验证过**（把 `anti_barrier` 拼成 `anti_barrior` → FAIL 并点名两侧）。
+
 验证脚本（三层，**都要能跑**）：
-- `Tools/verify-enchant-structure.ps1` —— 19 项静态检查 + 代入双向互斥算法推导
+- `Tools/verify-enchant-structure.ps1` —— 静态检查：文件合法性、均 1 级、
+  三者指向同一标签、标签恰好覆盖三者、未混入原版伤害组，代入双向互斥算法
+  推导两两互斥，外加 lang 键（含 ED 描述）与创造标签页的交叉校验
 - `Tools/verify-enchant-datapack.ps1` —— 启动**专用服务端**验证注册表解析
 - `Tools/verify-enchant-in-world.ps1` / `verify-enchantments.ps1` —— 进世界 / 资源包路径
+- `Tools/verify-creative-tab.ps1` —— 客户端启动，抓标签页注册报错
 
 > **关键认知**：客户端标题界面只能证明**资源包**（sounds/lang/models），
 > 证明不了**数据包注册表**（enchantment/tags）。附魔只在**服务端启动**时构建，

@@ -1,6 +1,6 @@
 {
   "description": {
-    "translate": "enchantment.pantheon_champions.champion_breaker"
+    "translate": "enchantment.pantheon_champions.anti_barrier"
   },
   "exclusive_set": "#pantheon_champions:exclusive_set/champion",
   "max_level": 1,
