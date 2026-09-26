@@ -269,8 +269,10 @@ this.triggerAnim("stun_controller", "stun");
    但实测 MC 1.21.1 的 `Monster.aiStep()` **第一行就调了**
    `updateSwingTime()`（字节码确认）。我们的勇士 `extends Monster`，
    再调一次会让挥击时间**按两倍速走**。
-2. **攻击动画只播一部分** → override `getCurrentSwingDuration()` 返回更长 tick
-   （默认 6）。
+2. **攻击动画只播一部分** → override `getCurrentSwingDuration()` 返回更长 tick。
+   默认是 6（字节码确认 `bipush 6`），而
+   `DefaultAnimations.genericAttackAnimation` 的 transition 是 **5**
+   （源码确认），所以动画比 6 tick 长就会被截断。建议 `return 12;`。
 3. **动画无法重播** → 停时没 reset，或 `.animation.json` 的 loop 写成了
    `hold_on_last_frame`。API 是 `AnimationState#resetCurrentAnimation()`。
 4. **`AnimationStateHandler` 每个渲染帧调用**，不是每 tick。别在里面做重活。
@@ -280,6 +282,40 @@ this.triggerAnim("stun_controller", "stun");
    GeckoLib 只驱动自己的 `.geo.json` 骨骼树。要动画就得换模型。
 7. `GeoReplacedEntity` **不适用于本项目**：它是「替换已有 EntityType 的渲染」，
    而我们注册自己的 EntityType，用不上。
+8. **`geo/` 和 `animations/` 前缀是运行时强校验**。`GeoModel` 里路径不含
+   `geo/` 或 `animations/` 会**直接抛异常**，不是"找不到文件"的软错误。
+   自己写 `GeoModel` 时前缀写错会崩。
+9. **模型 JSON 的 `formatVersion` 只能是 `1.12.0`**。枚举只有
+   `1.12.0` / `1.14.0` / `1.21.0`，后两个**只警告不报错**，
+   模型会静默渲染异常。Blockbench 导出时务必选 1.12.0。
+10. **`crashIfBoneMissing()` 默认 `false`**（源码确认 `return false;`）→
+    动画里写了模型里没有的骨骼**不会有任何提示**，只是那段不动。
+    调试期建议 override 返回 `true`。
+11. **`DefaultAnimations` 的动画名带前缀**，不是 `walk` / `idle` / `swing`：
+
+    | 常量 | `.animation.json` 里的名字 | loop |
+    | --- | --- | --- |
+    | `IDLE` | `misc.idle` | `loop` |
+    | `WALK` | `move.walk` | `loop` |
+    | `RUN` | `move.run` | `loop` |
+    | `ATTACK_SWING` | `attack.swing` | `play_once` |
+    | `DIE` | `misc.die` | `play_once` |
+    | `SPAWN` | `misc.spawn` | `play_once` |
+
+12. **`RawAnimation` 要缓存成 `static final`**。源码注释明确建议
+    （"should be cached statically ... to reduce overheads"），
+    它的 `equals` 是结构性比较，每次重建会在 `setAnimation` 里白跑比较。
+13. **controller 注册顺序 = 优先级，后注册的优先**。
+    ⚠️ 老 wiki 在这里**自相矛盾**：`The-Animation-Controller:43` 说后注册优先，
+    `Defining-Animations-in-Code:38` 说越靠后优先级越高——两句方向相反。
+    结合 `AnimatableManager` 按插入顺序执行，取「后注册优先」。
+    **这条没有实机跑渲染验证过**，只确认了「顺序有影响 + 文档矛盾」。
+14. **`GeoRenderLayer` 拿到的 buffer 可能是 `null`**（实体不可见时），自己判空。
+15. **`ItemArmorGeoLayer` 硬绑 `HumanoidModel`**（用
+    `ModelLayers.PLAYER_INNER/OUTER_ARMOR` 烘的），**不适合僵尸骨架**。
+    勇士要盔甲外观建议直接做进 `.geo.json`，别用这个 layer。
+16. **`ItemArmorGeoLayer` 用骨骼里的第一个 cube 定位盔甲**，
+    所以不要给没有 cube 的骨骼返回 ItemStack。
 
 ---
 
@@ -291,3 +327,142 @@ this.triggerAnim("stun_controller", "stun");
 
 实现实体行为时要一并写入这个 NBT，附魔才会真正生效。
 同时它也是第 8 节触发动画的判据来源。
+
+---
+
+## 11. `getTick` 与 partial tick 的分工（文档没讲清，从源码推出）
+
+这块老 wiki 和新 wiki **都没写清楚**，但写错会导致动画时间轴错乱，所以单列：
+
+1. **`getTick` 返回整数 tick，不含 partial tick**（`GeoEntity` 的默认实现
+   就是 `((Entity) entity).tickCount`）。
+2. **partial tick 是 GeckoLib 在 `GeoModel` 里自己加的**：
+   `currentFrameTime = currentTick + partialTick`（对 Entity 分支）。
+   所以**不要在 `getTick` 里加 partial tick，会双重计入**。
+3. **`AnimationStateHandler` 里要 partial tick 就调 `state.getPartialTick()`**。
+4. ⚠️ **override `getTick` 会连带影响别处**：`DataTickets.TICK` 用的是它，
+   而 `DefaultAnimations.getSpawnController` 直接拿它跟 tick 数比大小。
+   返回小数会让边界判定不可预期。**建议不要 override `getTick`。**
+
+另两个相关的量：
+
+- `isMoving()` 用平均横向速度判定，阈值默认 `0.015f`，
+  可在 renderer 里 override `getMotionAnimThreshold`。
+- `DataTickets.ENTITY_MODEL_DATA` 装的是
+  `EntityModelData(shouldSit, isBaby, -netHeadYaw, -headPitch)`
+  ——注意头偏航/俯仰**取的是负值**。
+
+---
+
+## 12. 冠军僵尸的最小闭环（骨架）
+
+> **验证状态**：本骨架用到的**每个 GeckoLib 符号都已用 `javap` 确认存在**
+> 且签名匹配（`DefaultAnimations.genericWalkIdleController` /
+> `triggerOnlyController` / `genericAttackAnimation` / `ATTACK_SWING`、
+> `AutoGlowingGeoLayer(GeoRenderer)`、`GeckoLibUtil.createInstanceCache`、
+> 以及各 import 的包路径）。
+> **但整段代码还没有放进项目编译过**——因为勇士实体本身还没实现，
+> 现在贴进去会因为没有 `ChampionsEntities` 而编译失败。
+> 实现实体时请以本节为起点，编译后再回来删掉这句提醒。
+>
+> 另注：`AnimatableInstanceCache` 是**抽象类**不是接口，
+> 但作为字段类型使用没有区别；包路径是
+> `software.bernie.geckolib.animatable.instance`。
+
+```java
+// ===== entity/ChampionZombie.java =====
+public class ChampionZombie extends Zombie implements GeoEntity {
+
+    /** 击晕动画。缓存为 static final —— RawAnimation 应尽量复用。 */
+    private static final RawAnimation STUN_ANIM = RawAnimation.begin().thenPlay("misc.stun");
+
+    /** 每个实例一份 cache。绝不能是 static。 */
+    private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
+
+    public ChampionZombie(EntityType<? extends Zombie> type, Level level) {
+        super(type, level);
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        // 宽泛的动画先注册。
+        controllers.add(DefaultAnimations.genericWalkIdleController(this));
+        // 具体的后注册 —— 优先级更高。
+        controllers.add(DefaultAnimations.genericAttackAnimation(this, DefaultAnimations.ATTACK_SWING));
+        // 纯触发 controller（名字固定为 "Actions"）。
+        controllers.add(DefaultAnimations.triggerOnlyController(this)
+                .triggerableAnim("stun", STUN_ANIM));
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.geoCache;
+    }
+
+    /**
+     * 挥击动画比默认 6 tick 长，所以拉长挥击窗口，否则攻击动画会被截断。
+     *
+     * <p>注意：不要额外 override {@code aiStep} 去调 {@code updateSwingTime()}，
+     * 因为 {@code Monster.aiStep()} 已经调了，再调会让挥击双倍速。</p>
+     */
+    @Override
+    public int getCurrentSwingDuration() {
+        return 12;
+    }
+
+    /** 由服务端调用；GeckoLib 会自动把触发同步给客户端。 */
+    public void playStun() {
+        if (!this.level().isClientSide()) {
+            this.triggerAnim("Actions", "stun");
+        }
+    }
+}
+```
+
+```java
+// ===== client/renderer/ChampionZombieRenderer.java =====
+public class ChampionZombieRenderer extends GeoEntityRenderer<ChampionZombie> {
+
+    public ChampionZombieRenderer(EntityRendererProvider.Context context) {
+        // 单参构造器会按 registry name 自动建 DefaultedEntityGeoModel，
+        // 所以连 model 类都可以不写。
+        super(context, ChampionsEntities.CHAMPION_ZOMBIE.get());
+
+        // EntityRenderer.shadowRadius 默认 0 -> 不设就没有影子。
+        this.shadowRadius = 0.5F;
+
+        // 需要 textures/entity/champion_zombie_glowmask.png
+        addRenderLayer(new AutoGlowingGeoLayer<>(this));
+    }
+}
+```
+
+资源文件位置（第 4 节）：
+
+```
+assets/pantheon_champions/geo/entity/champion_zombie.geo.json
+assets/pantheon_champions/animations/entity/champion_zombie.animation.json
+assets/pantheon_champions/textures/entity/champion_zombie.png
+```
+
+另需两处注册（渲染器见第 7 节）：
+
+```java
+// EntityType
+public static final DeferredHolder<EntityType<?>, EntityType<ChampionZombie>> CHAMPION_ZOMBIE =
+        ENTITY_TYPES.register("champion_zombie",
+                () -> EntityType.Builder.of(ChampionZombie::new, MobCategory.MONSTER)
+                        .sized(0.6F, 1.95F)
+                        .clientTrackingRange(8)
+                        .build("champion_zombie"));
+
+// 属性 —— 复用原版僵尸的数值
+@SubscribeEvent
+public static void onAttributeCreation(EntityAttributeCreationEvent event) {
+    event.put(ChampionsEntities.CHAMPION_ZOMBIE.get(), Zombie.createAttributes().build());
+}
+```
+
+> ⚠️ `/summon` 报错通常是**忘了注册属性**（`EntityAttributeCreationEvent`）。
+> 因为我们用的是新 `EntityType`，`event.put` 不会撞
+> `Duplicate DefaultAttributes entry`（那个异常只在改原版实体时出现）。
