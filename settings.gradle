@@ -1,0 +1,12 @@
+pluginManagement {
+    repositories {
+        mavenLocal()
+        gradlePluginPortal()
+        maven { url = 'https://maven.neoforged.net/releases' }
+    }
+}
+
+// No foojay toolchain resolver: the build pins Java 21 in gradle.properties, so the
+// plugin would only add a plugin-portal dependency for no benefit.
+
+rootProject.name = 'Pantheon-Champions'

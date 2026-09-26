@@ -1,0 +1,161 @@
+plugins {
+    id 'java-library'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.141'
+}
+
+version = mod_version
+group = mod_group_id
+base {
+    archivesName = "${mod_id}-${minecraft_version}-neoforge"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+
+    runs {
+        client {
+            client()
+            // Quick-play straight into a world when asked, which is how the champion
+            // behaviour actually gets exercised without clicking through menus:
+            //     ./gradlew runClient -PquickPlay="New World"
+            if (project.hasProperty('quickPlay')) {
+                programArguments.addAll '--quickPlaySingleplayer', project.property('quickPlay')
+            }
+        }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all',
+                    '--output', file('src/generated/resources/').getAbsolutePath(),
+                    '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+
+            // A forked run does not inherit the shell environment, so pass through
+            // every PANTHEON_ switch by prefix rather than maintaining a list that
+            // silently goes stale when a new switch is added.
+            System.getenv().each { name, value ->
+                if (name.startsWith('PANTHEON_')) {
+                    environment name, value
+                }
+            }
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+dependencies {
+    // TomlHarness is a plain main() harness rather than a JUnit suite: it drives the
+    // real ModConfigSpec, regenerates the TOML, and re-reads it.
+    testImplementation "com.electronwill.night-config:core:3.8.3"
+    testImplementation "com.electronwill.night-config:toml:3.8.3"
+}
+
+// The harness in src/test/java needs the same NeoForge surface main compiles against.
+// ModDevGradle populates the main source set's classpath with the NeoForge and FML
+// loader artifacts (ModConfigSpec, IConfigSpec), but does not repeat them for test,
+// so reuse main's classpath wholesale rather than listing artifacts one by one.
+sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
+
+// Generates META-INF/neoforge.mods.toml from src/main/templates, substituting the
+// gradle.properties values, so mod metadata lives in exactly one place.
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [minecraft_version      : minecraft_version,
+                             minecraft_version_range: minecraft_version_range,
+                             neo_version            : neo_version,
+                             neo_version_range      : neo_version_range,
+                             loader_version_range   : loader_version_range,
+                             mod_id                 : mod_id,
+                             mod_name               : mod_name,
+                             mod_license            : mod_license,
+                             mod_version            : mod_version,
+                             mod_authors            : mod_authors,
+                             mod_description        : mod_description]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.named('compileJava') {
+    options.compilerArgs << '-Xmaxerrs' << '2000'
+}
+
+// The default test task is off. TomlHarness is a plain main() harness driven by
+// Tools/build-and-verify.ps1, not a JUnit suite, so there is nothing for Gradle's
+// test task to discover.
+tasks.named('test') {
+    enabled = false
+}
+
+// Runs TomlHarness against the real compiled output, regenerating the config and
+// re-reading it to prove it validates.
+//
+// This exists because the PowerShell script used to hand-maintain a list of the
+// jars the harness needed, and that list drifted three separate times (first
+// -sources.jar matching, then IEventBus, then slf4j, then Dist) — each one a
+// NoClassDefFoundError or "unknown enum constant" that looked like a code fault.
+// Gradle already resolves this classpath, so ask it rather than restating it.
+tasks.register('verifyConfig', JavaExec) {
+    group = 'verification'
+    description = 'Regenerate pantheon_champions-common.toml and validate it against the spec.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'beiwu.pantheon_champions.config.TomlHarness'
+    args = [layout.projectDirectory.file('pantheon_champions-common.toml').asFile.absolutePath]
+
+    // log4j logs a StatusLogger warning because no backend is on the classpath;
+    // that is expected and noise here.
+    systemProperty 'log4j2.loggerContextFactory', 'org.apache.logging.log4j.simple.SimpleLoggerContextFactory'
+}
+
+jar {
+    manifest {
+        attributes([
+                'Specification-Title'     : mod_name,
+                'Specification-Vendor'    : mod_authors,
+                'Specification-Version'   : '1',
+                'Implementation-Title'    : mod_name,
+                'Implementation-Version'  : mod_version,
+                'Implementation-Vendor'   : mod_authors
+        ])
+    }
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}
