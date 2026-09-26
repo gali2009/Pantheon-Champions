@@ -642,7 +642,103 @@ equipment; subPredicate; periodicTick; vehicle; passenger; targetedEntity; team;
 （`damage` + `post_attack` + 勇士类型条件），
 而**勇士自身的护盾/自愈/冲锋行为必须用 Java 写在实体上**。
 
-### 10.8 附魔定义骨架
+### 10.8 附魔定义（已实现）
+
+> **状态：已实现并通过验证。** 文件位于
+> `src/main/resources/data/pantheon_champions/enchantment/`。
+> 下面记录的是**实际采用的**方案与验证方式。
+
+#### 10.8.1 三个附魔
+
+| 附魔 | 勇士类型 | 动词 | 加伤 | 命中效果 |
+| --- | --- | --- | --- | --- |
+| `champion_breaker` | 屏障 (0) | 破 | +4 | 无（破盾交给实体侧 Java） |
+| `champion_disruptor` | 过载 (1) | 压 | +4 | 虚弱 I，6 秒 |
+| `champion_stagger` | 势不可挡 (2) | 断 | +4 | 缓慢 III，4 秒 |
+
+三个都 `max_level: 1`、`weight: 2`、`anvil_cost: 4`、
+`slots: ["mainhand"]`、`supported_items: "#minecraft:enchantable/weapon"`。
+
+**为什么选虚弱 / 缓慢而不是直接写效果**：
+D2 的"压"是压制回复、"断"是打断冲锋。MC 里没有现成的对应效果，
+但虚弱（降低攻击力）在语义上贴近"压制"，缓慢（限制位移）贴近"打断冲锋"。
+真正的护盾/自愈/冲锋逻辑必须写在实体上（Java），附魔这一层只做
+**"打对了类型才有额外收益"**——这也符合第 1 节"反制应表达为技巧而非物品检查"的结论。
+
+#### 10.8.2 踩过的坑：不能用 `entity_properties.type`
+
+初版我写成了 `"predicate": { "type": "#pantheon_champions:champion" }`，
+**这是错的**。`type` 匹配的是**实体类型**（zombie / skeleton 这种），
+而"是不是勇士"是**单个实体的运行时状态**（决策 8：双态需运行时决定）。
+用 type 会导致：**所有**僵尸都被当成屏障勇士，全都吃 +4 加伤。
+
+必须用第 10.6 节的 NBT 判定，匹配实例数据：
+
+```json
+"predicate": { "nbt": "{NeoForgeData:{ChampionType:0}}" }
+```
+
+#### 10.8.3 路径已用字节码复核
+
+`NbtPredicate.getEntityTagToCompare` 调用 `Entity.saveWithoutId`，
+而 NeoForge 在 `saveWithoutId` 内部写入 `NeoForgeData` 子标签
+（`javap -c` 确认：该方法字节码中出现 `ldc "NeoForgeData"`）。
+所以 `NeoForgeData:` 这一层前缀是必需的，去掉就永远匹配不到。
+
+#### 10.8.4 `run_function` 的取舍（**未采用**）
+
+骨架里原本写的是 `minecraft:run_function` 调 `break_barrier`。
+`RunFunction` 类确实存在（`javap` 确认），但它接收的是
+`ResourceLocation` 并在**生效时**才去查函数表——
+**函数不存在时不会在加载期报错，只在玩家命中时静默失败**。
+这种"看起来配好了其实从不生效"的失败模式很难排查，
+所以本次不使用 `run_function`，破盾逻辑留给实体侧 Java 实现。
+
+#### 10.8.5 验证方式（三层，缺一不可）
+
+| 脚本 | 验证内容 | 为什么需要这一层 |
+| --- | --- | --- |
+| `Tools/verify-enchant-structure.ps1` | 文件合法、均 1 级、三者指向同一标签、标签恰好覆盖三者、未混入原版伤害组，并代入双向算法推导两两互斥 | 静态但充分——互斥判定已用字节码确认，可直接代入 |
+| `Tools/verify-enchant-datapack.ps1` | **专用服务端**启动，附魔注册表解析无报错 | 附魔是**数据包注册表**，只在服务端启动时构建。客户端停在标题界面时根本没解析，那时"无报错"是假证据 |
+| `Tools/verify-enchant-in-world.ps1` | 进世界后无注册表报错 | 覆盖单人存档路径 |
+
+**关键认知**：客户端标题界面只能证明**资源包**（sounds/lang/models）
+没问题，证明不了**数据包注册表**（enchantment/tags）。
+这两件事必须分开验证。
+
+```json
+// 实际实现（data/pantheon_champions/enchantment/champion_breaker.json）
+{
+  "description": { "translate": "enchantment.pantheon_champions.champion_breaker" },
+  "exclusive_set": "#pantheon_champions:exclusive_set/champion",
+  "max_level": 1,
+  "weight": 2,
+  "anvil_cost": 4,
+  "max_cost": { "base": 30, "per_level_above_first": 0 },
+  "min_cost": { "base": 15, "per_level_above_first": 0 },
+  "slots": ["mainhand"],
+  "supported_items": "#minecraft:enchantable/weapon",
+  "primary_items": "#minecraft:enchantable/sharp_weapon",
+  "effects": {
+    "minecraft:damage": [
+      {
+        "effect": { "type": "minecraft:add", "value": 4.0 },
+        "requirements": {
+          "condition": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": { "nbt": "{NeoForgeData:{ChampionType:0}}" }
+        }
+      }
+    ]
+  }
+}
+```
+
+`disruptor` / `stagger` 在此基础上多一个 `minecraft:post_attack` 块，
+条件是 `all_of`：NBT 匹配 + `damage_source_properties.is_direct`
+（照抄原版 `bane_of_arthropods` 的写法，确保只有直接命中才触发）。
+
+### 10.9 附魔定义骨架（历史草稿，已被 10.8 取代）
 
 ```json
 // data/pantheon_champions/enchantment/champion_breaker.json

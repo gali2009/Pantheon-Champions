@@ -1,4 +1,7 @@
 {
   "subtitles.pantheon_champions.stun1": "勇士被击晕",
-  "subtitles.pantheon_champions.stun2": "勇士被压制"
+  "subtitles.pantheon_champions.stun2": "勇士被压制",
+  "enchantment.pantheon_champions.champion_breaker": "勇士克星·破",
+  "enchantment.pantheon_champions.champion_disruptor": "勇士克星·压",
+  "enchantment.pantheon_champions.champion_stagger": "勇士克星·断"
 }

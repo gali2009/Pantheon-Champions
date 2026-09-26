@@ -1,4 +1,7 @@
 {
   "subtitles.pantheon_champions.stun1": "Champion staggered",
-  "subtitles.pantheon_champions.stun2": "Champion disrupted"
+  "subtitles.pantheon_champions.stun2": "Champion disrupted",
+  "enchantment.pantheon_champions.champion_breaker": "Champion Breaker",
+  "enchantment.pantheon_champions.champion_disruptor": "Champion Disruptor",
+  "enchantment.pantheon_champions.champion_stagger": "Champion Stagger"
 }
