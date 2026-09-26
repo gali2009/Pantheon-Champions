@@ -43,7 +43,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Tools\build-and-verify.ps1
 
 依赖版本（`gradle.properties`）：MC 1.21.1 / NeoForge 21.1.250 / ModDevGradle 2.0.141 /
 Gradle 9.4.0（走腾讯镜像，因为 `services.gradle.org` 在本机证书链校验失败）/
-GeckoLib 4.9.3。
+GeckoLib 4.9.3 / JEI 19.57.0.449 / Jade 15.10.6+neoforge（后两个仅开发期，见下）。
 
 ## 前置依赖：GeckoLib（已实机验证）
 用来做模型和动画。**1.21.1 属于 GeckoLib 4.x 线**，坐标与当前官网文档不同，
@@ -73,6 +73,44 @@ GeckoLib 4.9.3。
 验证脚本：`Tools\verify-geckolib.ps1`（启动 runClient，从日志确认 GeckoLib
 与本 mod 同时出现在 mod 列表）。**不要拿 `gradlew build` 成功冒充运行时装载成功**，
 两者失败方式完全不同。
+
+## 开发期辅助模组：JEI 与 Jade（已实机验证装载）
+**这两个只在开发环境用**，用来在游戏里核对本模组自己的内容：
+JEI 看附魔书能不能正常进物品栏、Jade 直接读实体 NBT。
+
+| 项 | JEI | Jade |
+|---|---|---|
+| 坐标 | `mezz.jei:jei-1.21.1-neoforge` | `maven.modrinth:jade` |
+| 版本属性 | `jei_version=19.57.0.449` | `jade_version=15.10.6+neoforge` |
+| 仓库 | `https://maven.blamejared.com` | `https://api.modrinth.com/maven` |
+
+**四个已核实的坑**：
+
+1. **JEI 有传递依赖，且都不在 Maven Central。** 主 artifact 依赖
+   `jei-1.21.1-common` / `-lib` / `-gui`，只在 BlameJared 仓库有。
+   所以**那个仓库不能省**，否则解析直接失败。已实测解析出完整依赖树。
+2. **JEI 还有个 `-neoforge-api` artifact，但只有 2.7 KB**，里面仅
+   `mezz/jei/api/neoforge/NeoForgeTypes.class` 三个类，
+   **不是完整 API**。想用 JEI 的 API 得依赖主 artifact，别被名字骗了。
+3. **Jade 没有自己的 Maven**，只在 Modrinth 上。
+   坐标的 group 是 `maven.modrinth`、artifact 是 **slug**（`jade`），
+   不是 Modrinth 的项目 id（`nvQzSEkH`）——两种都挂在一份 metadata 下，
+   用 slug 即可。
+4. **Jade 的版本号带 `+`**（`15.10.6+neoforge`）。
+   `+` 在 Maven 版本语法里是**动态版本通配符**，理论上 Gradle 会拒绝。
+   实测**直接写属性可以正常解析**，所以没有做特殊处理；
+   万一将来 Gradle 改严格了，正确修法是加 dependency-resolution
+   规则，**不是**去掉 `+`（`+` 是人家发布的正式名字的一部分）。
+
+**最重要的性质：它们是 `compileOnly` + `runtimeOnly`，绝不是 `implementation`，
+也绝不写进 `neoforge.mods.toml`。** 出厂 mod 必须能在没有 JEI/Jade 时正常工作。
+已回读校验出厂 jar 内的 `META-INF/neoforge.mods.toml`：
+依赖块只有 `neoforge` / `minecraft` / `geckolib`，**没有 jei、没有 jade**。
+
+验证脚本：`Tools\verify-devtools.ps1`（启动 runClient，确认两者出现在资源重载
+列表、插件加载成功、且无 `Missing or unsupported mandatory dependencies`
+之类的装载报错）。**`gradlew dependencies` 解析成功只证明能下到 jar，
+不证明能被装载**——这两件事失败方式不同，别混为一谈。
 
 ## 本地参考资料
 `docs-reference/`（已 gitignore）是上游文档的浅克隆，不用反复抓网页：

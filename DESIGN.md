@@ -793,48 +793,6 @@ D2 的"压"是压制回复、"断"是打断冲锋。MC 里没有现成的对应�
 
 标签页标题键：`itemGroup.pantheon_champions.champions`。
 
-### 10.9 附魔定义骨架（历史草稿，已被 10.8 取代）
-
-```json
-// data/pantheon_champions/enchantment/anti_barrier.json
-{
-  "description": { "translate": "enchantment.pantheon_champions.anti_barrier" },
-  "exclusive_set": "#pantheon_champions:exclusive_set/champion",
-  "max_level": 1,
-  "weight": 2,
-  "anvil_cost": 4,
-  "slots": ["mainhand"],
-  "supported_items": "#minecraft:enchantable/weapon",
-  "effects": {
-    "minecraft:damage": [
-      {
-        "effect": { "type": "minecraft:add", "value": 4.0 },
-        "requirements": {
-          "condition": "minecraft:entity_properties",
-          "entity": "this",
-          "predicate": { "nbt": "{NeoForgeData:{ChampionType:0}}" }
-        }
-      }
-    ],
-    "minecraft:post_attack": [
-      {
-        "enchanted": "attacker",
-        "affected": "victim",
-        "effect": { "type": "minecraft:run_function",
-                    "function": "pantheon_champions:champion/break_barrier" },
-        "requirements": {
-          "condition": "minecraft:entity_properties",
-          "entity": "this",
-          "predicate": { "nbt": "{NeoForgeData:{ChampionType:0}}" }
-        }
-      }
-    ]
-  }
-}
-```
-
-三种附魔仅 `nbt` 值与效果不同：`ChampionType:0` 屏障 / `1` 过载 / `2` 势不可挡。
-
 ---
 
 ## 11. 待定决策

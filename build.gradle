@@ -33,6 +33,36 @@ repositories {
             includeGroupAndSubgroups('software.bernie.geckolib')
         }
     }
+
+    // JEI publishes to BlameJared's maven, together with the sibling artifacts it
+    // depends on (jei-1.21.1-common / -lib / -gui). Those siblings are NOT on
+    // Maven Central, so this repository is required for JEI to resolve at all --
+    // the artifact alone is not enough.
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'BlameJared'
+                url = 'https://maven.blamejared.com'
+            }
+        }
+        filter {
+            includeGroupAndSubgroups('mezz.jei')
+            includeGroupAndSubgroups('net.mezzdev.config')
+        }
+    }
+
+    // Jade has no maven of its own; Modrinth hosts one for the projects it lists.
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter {
+            includeGroup('maven.modrinth')
+        }
+    }
 }
 
 neoForge {
@@ -94,6 +124,27 @@ dependencies {
     // minecraft_version rather than hardcoded. GeckoLib 4.x declares no
     // transitive dependencies, so this single line is the whole story.
     implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+
+    // JEI and Jade are DEVELOPMENT-TIME helpers, not runtime requirements.
+    //
+    // compileOnly -> the mod's own code could compile against their APIs
+    // runtimeOnly -> they actually load inside runClient / runServer, which is
+    //                what makes them useful for inspecting the mod's content
+    //                (JEI: do the enchanted books show up; Jade: what NBT does
+    //                this champion actually carry).
+    //
+    // Deliberately NOT `implementation`, and never referenced in
+    // neoforge.mods.toml: the shipped mod must work without either of them.
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+
+    // Jade's version string contains '+', which is Maven's dynamic-version
+    // wildcard. That is expected to be rejected, but Gradle accepts it here as
+    // written -- verified by resolving runtimeClasspath, not assumed. If Gradle
+    // ever tightens this, add a dependency-resolution rule; do NOT trim the '+',
+    // which is part of Jade's published version name.
+    compileOnly "maven.modrinth:jade:${jade_version}"
+    runtimeOnly "maven.modrinth:jade:${jade_version}"
 
     // TomlHarness is a plain main() harness rather than a JUnit suite: it drives the
     // real ModConfigSpec, regenerates the TOML, and re-reads it.
